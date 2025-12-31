@@ -1,4 +1,21 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
+
 export default async function handler(req, res) {
+  // Check authentication
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Check if user is admin
+  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
+  const isAdmin = adminSlackIds.includes(session.user.SlackID);
+
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Forbidden: Admin access required" });
+  }
+
   const key = process.env.AIRBRIDGE_API_KEY;
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 

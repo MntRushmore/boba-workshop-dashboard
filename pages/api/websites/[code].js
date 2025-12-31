@@ -1,4 +1,13 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
+
 export default async function handler(req, res) {
+  // Check authentication
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { code } = req.query;
   const key = process.env.AIRBRIDGE_API_KEY;
 
@@ -11,9 +20,12 @@ export default async function handler(req, res) {
   try {
     const base = encodeURIComponent("Boba Club Dashboard");
 
+    // Sanitize code to prevent injection
+    const sanitizedCode = String(code).replace(/'/g, "\\'");
+
     const eventSelect = encodeURIComponent(
       JSON.stringify({
-        filterByFormula: `{Event Code} = '${code}'`,
+        filterByFormula: `{Event Code} = '${sanitizedCode}'`,
         fields: ["Event Code", "Status"]
       })
     );
