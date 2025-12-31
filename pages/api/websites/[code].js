@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     } catch (e) {
       return res
         .status(502)
-        .json({ error: "Bad JSON from event lookup", body: eventText });
+        .json({ error: "Bad JSON from event lookup" });
     }
     const eventRecords = Array.isArray(eventJson)
       ? eventJson
@@ -99,13 +99,13 @@ export default async function handler(req, res) {
     } catch (e) {
       return res
         .status(502)
-        .json({ error: "Bad JSON from upstream", body: text });
+        .json({ error: "Bad JSON from upstream" });
     }
 
     if (!resp.ok) {
       return res
         .status(resp.status)
-        .json({ error: "Upstream error", body: json });
+        .json({ error: "Upstream error" });
     }
 
     const records = Array.isArray(json)
@@ -131,7 +131,7 @@ export default async function handler(req, res) {
 
     return res
       .status(200)
-      .json({ records: normalized, raw: json, event: eventJson, eventStatus });
+      .json({ records: normalized, eventStatus });
   } catch (err) {
     console.error("API fetch error", err);
     return res.status(500).json({ error: err.message || "Unknown error" });
