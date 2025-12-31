@@ -43,26 +43,12 @@ export default function Event() {
     return map;
   }, [rows]);
 
-  const filteredRows = useMemo(() => {
-    if (!rows.length) return [];
-    return rows.filter((row) => {
-      const normalized = normalizeStatus(row.status);
-      if (statusFilter === "all") return true;
-      if (statusFilter === "rejected") {
-        const statuses = emailStatusMap.get(row.email || "") || [normalized];
-        const hasApproval = statuses.some((s) => s === "approved");
-        return normalized === "rejected" || !hasApproval;
-      }
-      return normalized === statusFilter;
-    });
-  }, [rows, statusFilter, emailStatusMap]);
   const router = useRouter();
 
   useEffect(() => {
     if (status === "loading" || !router.isReady) return;
     if (status !== "authenticated") return;
 
-    // Store user info in session storage for grant requests
     if (session?.user?.name) {
       window.sessionStorage.setItem("userName", session.user.name);
     }
@@ -72,7 +58,6 @@ export default function Event() {
 
     const code = router.query.EventCode;
 
-    // Check grant request cooldown from localStorage
     const cooldownKey = `grant-request-${code}`;
     const storedCooldown = localStorage.getItem(cooldownKey);
     if (storedCooldown) {
@@ -83,7 +68,6 @@ export default function Event() {
       if (hoursPassed < 24) {
         setGrantRequestCooldown(cooldownTime);
       } else {
-        // Cooldown expired, remove it
         localStorage.removeItem(cooldownKey);
       }
     }
@@ -108,7 +92,7 @@ export default function Event() {
     };
 
     fetchData();
-  }, [status, router.isReady, router.query.EventCode]);
+  }, [status, router.isReady, router.query.EventCode, session]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -118,42 +102,50 @@ export default function Event() {
   }, [status, router]);
 
   const filteredRows = useMemo(() => {
+    if (!rows.length) return [];
     const filtered = rows.filter((row) => {
       const matchesSearch =
         searchQuery === "" ||
         row.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.website?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "All" || row.status === statusFilter;
+
+      const normalized = normalizeStatus(row.status);
+      let matchesStatus = true;
+
+      if (statusFilter === "All") {
+        matchesStatus = true;
+      } else if (statusFilter === "Rejected") {
+        const statuses = emailStatusMap.get(row.email || "") || [normalized];
+        const hasApproval = statuses.some((s) => s === "approved");
+        matchesStatus = normalized === "rejected" || !hasApproval;
+      } else {
+        matchesStatus = normalized === statusFilter.toLowerCase();
+      }
+
       return matchesSearch && matchesStatus;
     });
-    // Reset to page 1 when filters change
     setCurrentPage(1);
     return filtered;
-  }, [rows, searchQuery, statusFilter]);
-
-  const approvedCount = useMemo(() => {
-    return rows.filter((row) => row.status === "Approved").length;
-  }, [rows]);
+  }, [rows, searchQuery, statusFilter, emailStatusMap]);
 
   const isGrantButtonDisabled = useMemo(() => {
-    // Disable if less than 3 approved submissions
-    if (approvedCount < 3) return true;
-
-    // Disable if event is deactivated
-    if (eventStatus === "Deactivated") return true;
-
-    // Disable if within 24-hour cooldown
+    const approvedCount = rows.filter(
+      (row) => normalizeStatus(row.status) === "approved"
+    ).length;
     if (grantRequestCooldown) {
       const now = new Date();
       const cooldownTime = new Date(grantRequestCooldown);
       const hoursPassed = (now - cooldownTime) / (1000 * 60 * 60);
       return hoursPassed < 24;
     }
+    return approvedCount < 3 || eventStatus === "Deactivated";
+  }, [rows, grantRequestCooldown, eventStatus]);
 
-    return false;
-  }, [approvedCount, eventStatus, grantRequestCooldown]);
+  const approvedCount = useMemo(() => {
+    return rows.filter((row) => normalizeStatus(row.status) === "approved")
+      .length;
+  }, [rows]);
 
   const getGrantButtonText = () => {
     if (approvedCount < 3) return `Need ${3 - approvedCount} more approved`;
@@ -284,11 +276,12 @@ export default function Event() {
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                   mb: 1,
+                  pr: 2,
                 }}
               >
                 Event Code
               </Text>
-              <Text sx={{ fontSize: 5, fontWeight: "bold", color: "text" }}>
+              <Text sx={{ fontSize: 4, fontWeight: "bold", color: "text" }}>
                 {router.query.EventCode}
               </Text>
             </Box>
@@ -304,7 +297,7 @@ export default function Event() {
                   : "#000",
                 px: 4,
                 py: 2,
-                borderRadius: 4,
+                borderRadius: 8,
                 fontSize: 2,
                 fontWeight: "bold",
                 cursor: isGrantButtonDisabled ? "not-allowed" : "pointer",
@@ -313,6 +306,7 @@ export default function Event() {
                 "&:hover": {
                   opacity: isGrantButtonDisabled ? 1 : 0.9,
                 },
+                borderRadius: 8,
               }}
             >
               {getGrantButtonText()}
@@ -336,7 +330,7 @@ export default function Event() {
                   flex: 1,
                   bg: "transparent",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: 4,
+                  borderRadius: 8,
                   px: 3,
                   py: 2,
                   color: "text",
@@ -356,7 +350,7 @@ export default function Event() {
                 sx={{
                   bg: "transparent",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: 4,
+                  borderRadius: 8,
                   px: 3,
                   py: 2,
                   color: "text",
@@ -380,7 +374,7 @@ export default function Event() {
                   color: "white",
                   px: 4,
                   py: 2,
-                  borderRadius: 4,
+                  borderRadius: 8,
                   fontSize: 2,
                   fontWeight: "bold",
                   cursor: "pointer",
@@ -590,7 +584,7 @@ export default function Event() {
                             style={{
                               display: "inline-block",
                               padding: "4px 10px",
-                              borderRadius: "3px",
+                              borderRadius: 8,
                               fontSize: "11px",
                               fontWeight: 700,
                               textTransform: "uppercase",
@@ -655,7 +649,7 @@ export default function Event() {
                     currentPage === 1 ? "rgba(248, 251, 255, 0.3)" : "white",
                   px: 3,
                   py: 2,
-                  borderRadius: 4,
+                  borderRadius: 8,
                   fontSize: 2,
                   cursor: currentPage === 1 ? "not-allowed" : "pointer",
                   border: "none",
@@ -682,7 +676,7 @@ export default function Event() {
                       : "white",
                   px: 3,
                   py: 2,
-                  borderRadius: 4,
+                  borderRadius: 8,
                   fontSize: 2,
                   cursor:
                     currentPage === totalPages ? "not-allowed" : "pointer",

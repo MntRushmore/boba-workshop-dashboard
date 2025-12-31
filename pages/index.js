@@ -30,7 +30,8 @@ export default function Home() {
     if (status !== "authenticated") return;
 
     // Check if user is admin
-    const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
+    const adminSlackIds =
+      process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
     const userIsAdmin = adminSlackIds.includes(session.user.SlackID);
     setIsAdmin(userIsAdmin);
 
@@ -40,10 +41,8 @@ export default function Home() {
       try {
         let res;
         if (userIsAdmin) {
-          // Admins get all events
           res = await fetch(`/api/event-codes/all`);
         } else {
-          // Regular users get only their events
           res = await fetch(
             `/api/event-codes/by-owner?SlackID=${encodeURIComponent(
               session.user.SlackID
@@ -74,7 +73,7 @@ export default function Home() {
       return matchesSearch && matchesStatus;
     });
 
-    // Sort the filtered results
+    // Sort the filt  ered results
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === "code") {
         return (a.code || "").localeCompare(b.code || "");
@@ -111,8 +110,8 @@ export default function Home() {
         sx={{
           display: "flex",
           flexDirection: "column",
-          gap: 4,
           width: "100%",
+          paddingX: 4,
         }}
       >
         {status === "loading" && <Text>Loading...</Text>}
@@ -180,7 +179,9 @@ export default function Home() {
                         setEvents(json.records || []);
                       })
                       .catch((err) => {
-                        setError(err?.message || "Failed to load your workshops");
+                        setError(
+                          err?.message || "Failed to load your workshops"
+                        );
                       })
                       .finally(() => {
                         setLoading(false);
@@ -233,28 +234,63 @@ export default function Home() {
                   }}
                 >
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
-                    <Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <Text
+                      sx={{
+                        fontSize: 1,
+                        color: "rgba(248, 251, 255, 0.5)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                      }}
+                    >
                       Total Workshops
                     </Text>
-                    <Text sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}>
+                    <Text
+                      sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}
+                    >
                       {stats.total}
                     </Text>
                   </Box>
-                  <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
+                  <Box
+                    sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
+                  />
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
-                    <Text sx={{ fontSize: 1, color: "#33D6A6", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <Text
+                      sx={{
+                        fontSize: 1,
+                        color: "#33D6A6",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                      }}
+                    >
                       Active
                     </Text>
-                    <Text sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}>
+                    <Text
+                      sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}
+                    >
                       {stats.active}
                     </Text>
                   </Box>
-                  <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
+                  <Box
+                    sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
+                  />
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
-                    <Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <Text
+                      sx={{
+                        fontSize: 1,
+                        color: "rgba(248, 251, 255, 0.5)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                      }}
+                    >
                       Deactivated
                     </Text>
-                    <Text sx={{ fontSize: 6, fontWeight: "bold", color: "rgba(248, 251, 255, 0.5)" }}>
+                    <Text
+                      sx={{
+                        fontSize: 6,
+                        fontWeight: "bold",
+                        color: "rgba(248, 251, 255, 0.5)",
+                      }}
+                    >
                       {stats.deactivated}
                     </Text>
                   </Box>
@@ -269,7 +305,9 @@ export default function Home() {
                   }}
                 >
                   <Input
-                    placeholder={isAdmin ? "Search by code or organizer..." : "Search..."}
+                    placeholder={
+                      isAdmin ? "Search by code or organizer..." : "Search..."
+                    }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     sx={{
@@ -306,6 +344,7 @@ export default function Home() {
                         outline: "none",
                         borderColor: "#EC3750",
                       },
+                      minWidth: 120,
                     }}
                   >
                     <option value="All">All</option>
@@ -328,6 +367,7 @@ export default function Home() {
                         outline: "none",
                         borderColor: "#EC3750",
                       },
+                      minWidth: 160,
                     }}
                   >
                     <option value="code">By Code</option>
@@ -336,9 +376,12 @@ export default function Home() {
                 </Box>
               </>
             )}
-            {!loading && !error && filteredEvents.length === 0 && events.length > 0 && (
-              <Text>No workshops match your filters.</Text>
-            )}
+            {!loading &&
+              !error &&
+              filteredEvents.length === 0 &&
+              events.length > 0 && (
+                <Text>No workshops match your filters.</Text>
+              )}
             {!loading && !error && filteredEvents.length > 0 && (
               <Grid
                 gap={3}
