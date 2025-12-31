@@ -1,10 +1,19 @@
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/Layout";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { Box } from "theme-ui";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 
 export default function Event() {
   const { data: session, status } = useSession();
@@ -13,12 +22,38 @@ export default function Event() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rawResponse, setRawResponse] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
   const StatusKey = {
     Pending: "yellow",
     Approved: "green",
     Rejected: "red",
   };
+  const normalizeStatus = (value) => (value || "Pending").toLowerCase();
 
+  const emailStatusMap = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => {
+      const email = row.email || "";
+      const statuses = map.get(email) || [];
+      statuses.push(normalizeStatus(row.status));
+      map.set(email, statuses);
+    });
+    return map;
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (!rows.length) return [];
+    return rows.filter((row) => {
+      const normalized = normalizeStatus(row.status);
+      if (statusFilter === "all") return true;
+      if (statusFilter === "rejected") {
+        const statuses = emailStatusMap.get(row.email || "") || [normalized];
+        const hasApproval = statuses.some((s) => s === "approved");
+        return normalized === "rejected" || !hasApproval;
+      }
+      return normalized === statusFilter;
+    });
+  }, [rows, statusFilter, emailStatusMap]);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,7 +94,6 @@ export default function Event() {
   if (status !== "authenticated") {
     return null;
   }
-
   return (
     <Layout>
       <Header
@@ -69,10 +103,47 @@ export default function Event() {
       />
       <Box sx={{ px: 4 }}>
         <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexDirection: ["column", "row"],
+            gap: 2,
+            mb: [3, 3],
+          }}
+        >
+          <p sx={{ color: "muted" }}>
+            Event Code: <strong>{router.query.EventCode}</strong>
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <label htmlFor="status-filter" style={{ color: "#b8c3d9" }}>
+              Status filter:
+            </label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                background: "#0f172a",
+                color: "#f8fbff",
+                border: "1px solid rgba(248, 251, 255, 0.12)",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                minWidth: "180px",
+              }}
+            >
+              <option value="all">All</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected (no approvals)</option>
+            </select>
+          </div>
+        </Box>
+        <Box
           as="p"
           sx={{
-            mt: [2, 3], // space after header
-            mb: [3, 4], // space before table
+            mt: [2, 3],
+            mb: [3, 4],
             textAlign: "center",
             color: "primary",
             fontSize: [2, 3], // smaller than a title
@@ -81,104 +152,69 @@ export default function Event() {
             opacity: 0.85, // makes it feel secondary
           }}
         >
-          Event Code: {router.query.EventCode}
-        </Box>
-        <Box sx={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              background: "#0a0f1c",
-              color: "#f8fbff",
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
-          >
-            <thead style={{ background: "rgba(255,255,255,0.06)" }}>
-              <tr>
-                <th style={{ textAlign: "left", padding: "12px 16px" }}>
-                  Name
-                </th>
-                <th style={{ textAlign: "left", padding: "12px 16px" }}>
-                  Email
-                </th>
-                <th style={{ textAlign: "left", padding: "12px 16px" }}>
-                  Status
-                </th>
-                <th style={{ textAlign: "left", padding: "12px 16px" }}>
-                  Website
-                </th>
-                <th style={{ textAlign: "left", padding: "12px 16px" }}>
-                  Decision Reason
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Website</TableHead>
+                <TableHead>Decision Reason</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading && (
-                <tr>
-                  <td style={{ padding: "12px 16px" }} colSpan={5}>
-                    Loading...
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={5}>Loading...</TableCell>
+                </TableRow>
               )}
               {error && !loading && (
-                <tr>
-                  <td
-                    style={{ padding: "12px 16px", color: "#EC3750" }}
-                    colSpan={5}
-                  >
+                <TableRow>
+                  <TableCell colSpan={5} style={{ color: "#EC3750" }}>
                     {error}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-              {!loading && !error && rows.length === 0 && (
-                <tr>
-                  <td style={{ padding: "12px 16px" }} colSpan={5}>
-                    No records found.
-                  </td>
-                </tr>
+              {!loading && !error && filteredRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    No records match this filter.
+                  </TableCell>
+                </TableRow>
               )}
               {!loading &&
                 !error &&
-                rows.map((row, idx) => (
-                  <tr
-                    key={`${row.email}-${idx}`}
-                    style={{
-                      borderTop: "1px solid rgba(248, 251, 255, 0.08)",
-                      background:
-                        idx % 2 === 0
-                          ? "rgba(255,255,255,0.02)"
-                          : "transparent",
-                    }}
-                  >
-                    <td style={{ padding: "12px 16px" }}>{row.name}</td>
-                    <td style={{ padding: "12px 16px" }}>{row.email}</td>
-                    <td
+                filteredRows.map((row, idx) => (
+                  <TableRow key={`${row.email}-${idx}`}>
+                    <TableCell>{row.name}</TableCell>
+                    <TableCell>{row.email}</TableCell>
+                    <TableCell
                       style={{
-                        padding: "12px 16px",
                         fontWeight: 600,
-                        color: StatusKey[row.status],
+                        color: StatusKey[row.status] || "#f8fbff",
                       }}
                     >
-                      {row.status}
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <a
-                        href={row.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#5BC0EB" }}
-                      >
-                        {row.website}
-                      </a>
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      {row.decisionReason}
-                    </td>
-                  </tr>
+                      {row.status || "Pending"}
+                    </TableCell>
+                    <TableCell>
+                      {row.website ? (
+                        <a
+                          href={row.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#5BC0EB" }}
+                        >
+                          {row.website}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>{row.decisionReason || "—"}</TableCell>
+                  </TableRow>
                 ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </Box>
       </Box>
       <Footer />
