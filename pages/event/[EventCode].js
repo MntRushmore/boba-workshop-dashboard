@@ -320,26 +320,104 @@ export default function Event() {
                 alignItems: ["stretch", "center"],
               }}
             >
-              <thead>
-                <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.1)" }}>
-                  <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
-                    Name
-                  </th>
-                  <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
-                    Email
-                  </th>
-                  <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
-                    Status
-                  </th>
-                  <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
-                    Website
-                  </th>
-                  <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
-                    Reason
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{
+                  flex: 1,
+                  bg: "transparent",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: 4,
+                  px: 3,
+                  py: 2,
+                  color: "text",
+                  fontSize: 2,
+                  "&:focus": {
+                    outline: "none",
+                    borderColor: "#EC3750",
+                  },
+                  "&::placeholder": {
+                    color: "rgba(248, 251, 255, 0.3)",
+                  },
+                }}
+              />
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                sx={{
+                  bg: "transparent",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: 4,
+                  px: 3,
+                  py: 2,
+                  color: "text",
+                  fontSize: 2,
+                  cursor: "pointer",
+                  "&:focus": {
+                    outline: "none",
+                    borderColor: "#EC3750",
+                  },
+                }}
+              >
+                <option value="All">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </Select>
+              <Button
+                onClick={exportToCSV}
+                sx={{
+                  bg: "primary",
+                  color: "white",
+                  px: 4,
+                  py: 2,
+                  borderRadius: 4,
+                  fontSize: 2,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  border: "none",
+                  whiteSpace: "nowrap",
+                  "&:hover": {
+                    opacity: 0.9,
+                  },
+                }}
+              >
+                Export
+              </Button>
+            </Box>
+          )}
+          <Box sx={{ overflowX: "auto" }}>
+            {loading ? (
+              <SkeletonTable />
+            ) : (
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  color: "#f8fbff",
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.1)" }}>
+                    <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
+                      Name
+                    </th>
+                    <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
+                      Email
+                    </th>
+                    <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
+                      Status
+                    </th>
+                    <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
+                      Website
+                    </th>
+                    <th style={{ textAlign: "left", padding: "0 0 12px 0", fontWeight: 600, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(248, 251, 255, 0.4)" }}>
+                      Reason
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
               {error && !loading && (
                 <tr>
                   <td style={{ padding: "24px 16px" }} colSpan={5}>
@@ -423,165 +501,11 @@ export default function Event() {
                 !error &&
                 paginatedRows.map((row, idx) => (
                   <tr
-                    style={{ borderBottom: "2px solid rgba(255,255,255,0.1)" }}
+                    key={`${row.email}-${idx}`}
+                    style={{
+                      borderBottom: "1px solid rgba(248, 251, 255, 0.05)",
+                    }}
                   >
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "0 0 12px 0",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "rgba(248, 251, 255, 0.4)",
-                      }}
-                    >
-                      Name
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "0 0 12px 0",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "rgba(248, 251, 255, 0.4)",
-                      }}
-                    >
-                      Email
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "0 0 12px 0",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "rgba(248, 251, 255, 0.4)",
-                      }}
-                    >
-                      Status
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "0 0 12px 0",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "rgba(248, 251, 255, 0.4)",
-                      }}
-                    >
-                      Website
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "0 0 12px 0",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "rgba(248, 251, 255, 0.4)",
-                      }}
-                    >
-                      Reason
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {error && !loading && (
-                    <tr>
-                      <td style={{ padding: "24px 16px" }} colSpan={5}>
-                        <Box
-                          sx={{
-                            textAlign: "center",
-                            py: 3,
-                          }}
-                        >
-                          <Text sx={{ fontSize: 3, mb: 2 }}>⚠️</Text>
-                          <Text
-                            sx={{
-                              fontSize: 2,
-                              fontWeight: "bold",
-                              color: "primary",
-                              mb: 2,
-                            }}
-                          >
-                            Error Loading Data
-                          </Text>
-                          <Text
-                            sx={{
-                              fontSize: 1,
-                              color: "rgba(248, 251, 255, 0.6)",
-                              mb: 3,
-                            }}
-                          >
-                            {error}
-                          </Text>
-                          <Button
-                            onClick={() => {
-                              setError("");
-                              setLoading(true);
-                              const code = router.query.EventCode;
-                              fetch(`/api/websites/${encodeURIComponent(code)}`)
-                                .then((res) => res.json())
-                                .then((json) => {
-                                  if (!json.records)
-                                    throw new Error("No data returned");
-                                  setRawResponse(json.raw ?? json);
-                                  setRows(json.records || []);
-                                })
-                                .catch((err) => {
-                                  setError(
-                                    err?.message || "Failed to load data"
-                                  );
-                                })
-                                .finally(() => {
-                                  setLoading(false);
-                                });
-                            }}
-                            sx={{
-                              bg: "primary",
-                              color: "white",
-                              px: 3,
-                              py: 2,
-                              borderRadius: 8,
-                              fontSize: 1,
-                              fontWeight: "bold",
-                              cursor: "pointer",
-                              border: "none",
-                              transition: "all 0.2s ease",
-                              "&:hover": {
-                                bg: "#ff4961",
-                              },
-                            }}
-                          >
-                            Retry
-                          </Button>
-                        </Box>
-                      </td>
-                    </tr>
-                  )}
-                  {!loading && !error && filteredRows.length === 0 && (
-                    <tr>
-                      <td style={{ padding: "12px 16px" }} colSpan={5}>
-                        No records found.
-                      </td>
-                    </tr>
-                  )}
-                  {!loading &&
-                    !error &&
-                    paginatedRows.map((row, idx) => (
-                      <tr
-                        key={`${row.email}-${idx}`}
-                        style={{
-                          borderBottom: "1px solid rgba(248, 251, 255, 0.05)",
-                        }}
-                      >
                         <td
                           style={{
                             padding: "20px 0",
