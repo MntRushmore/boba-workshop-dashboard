@@ -29,6 +29,18 @@ export default function Event() {
     Approved: "green",
     Rejected: "red",
   };
+  const normalizeStatus = (value) => (value || "Pending").toLowerCase();
+
+  const emailStatusMap = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => {
+      const email = row.email || "";
+      const statuses = map.get(email) || [];
+      statuses.push(normalizeStatus(row.status));
+      map.set(email, statuses);
+    });
+    return map;
+  }, [rows]);
 
   const router = useRouter();
 
@@ -36,7 +48,6 @@ export default function Event() {
     if (status === "loading" || !router.isReady) return;
     if (status !== "authenticated") return;
 
-    // Store user info in session storage for grant requests
     if (session?.user?.name) {
       window.sessionStorage.setItem("userName", session.user.name);
     }
@@ -46,7 +57,6 @@ export default function Event() {
 
     const code = router.query.EventCode;
 
-    // Check grant request cooldown from localStorage
     const cooldownKey = `grant-request-${code}`;
     const storedCooldown = localStorage.getItem(cooldownKey);
     if (storedCooldown) {
@@ -57,7 +67,6 @@ export default function Event() {
       if (hoursPassed < 24) {
         setGrantRequestCooldown(cooldownTime);
       } else {
-        // Cooldown expired, remove it
         localStorage.removeItem(cooldownKey);
       }
     }
@@ -81,7 +90,7 @@ export default function Event() {
     };
 
     fetchData();
-  }, [status, router.isReady, router.query.EventCode]);
+  }, [status, router.isReady, router.query.EventCode, session]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -91,42 +100,50 @@ export default function Event() {
   }, [status, router]);
 
   const filteredRows = useMemo(() => {
+    if (!rows.length) return [];
     const filtered = rows.filter((row) => {
       const matchesSearch =
         searchQuery === "" ||
         row.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.website?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "All" || row.status === statusFilter;
+
+      const normalized = normalizeStatus(row.status);
+      let matchesStatus = true;
+
+      if (statusFilter === "All") {
+        matchesStatus = true;
+      } else if (statusFilter === "Rejected") {
+        const statuses = emailStatusMap.get(row.email || "") || [normalized];
+        const hasApproval = statuses.some((s) => s === "approved");
+        matchesStatus = normalized === "rejected" || !hasApproval;
+      } else {
+        matchesStatus = normalized === statusFilter.toLowerCase();
+      }
+
       return matchesSearch && matchesStatus;
     });
-    // Reset to page 1 when filters change
     setCurrentPage(1);
     return filtered;
-  }, [rows, searchQuery, statusFilter]);
-
-  const approvedCount = useMemo(() => {
-    return rows.filter((row) => row.status === "Approved").length;
-  }, [rows]);
+  }, [rows, searchQuery, statusFilter, emailStatusMap]);
 
   const isGrantButtonDisabled = useMemo(() => {
-    // Disable if less than 3 approved submissions
-    if (approvedCount < 3) return true;
-
-    // Disable if event is deactivated
-    if (eventStatus === "Deactivated") return true;
-
-    // Disable if within 24-hour cooldown
+    const approvedCount = rows.filter(
+      (row) => normalizeStatus(row.status) === "approved"
+    ).length;
     if (grantRequestCooldown) {
       const now = new Date();
       const cooldownTime = new Date(grantRequestCooldown);
       const hoursPassed = (now - cooldownTime) / (1000 * 60 * 60);
       return hoursPassed < 24;
     }
+    return approvedCount < 3 || eventStatus === "Deactivated";
+  }, [rows, grantRequestCooldown, eventStatus]);
 
-    return false;
-  }, [approvedCount, eventStatus, grantRequestCooldown]);
+  const approvedCount = useMemo(() => {
+    return rows.filter((row) => normalizeStatus(row.status) === "approved")
+      .length;
+  }, [rows]);
 
   const getGrantButtonText = () => {
     if (approvedCount < 3) return `Need ${3 - approvedCount} more approved`;
@@ -134,7 +151,8 @@ export default function Event() {
     if (grantRequestCooldown) {
       const now = new Date();
       const cooldownTime = new Date(grantRequestCooldown);
-      const hoursRemaining = 24 - Math.floor((now - cooldownTime) / (1000 * 60 * 60));
+      const hoursRemaining =
+        24 - Math.floor((now - cooldownTime) / (1000 * 60 * 60));
       if (hoursRemaining > 0) {
         return `Requested (${hoursRemaining}h cooldown)`;
       }
@@ -179,7 +197,9 @@ export default function Event() {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `workshop-${router.query.EventCode}-${new Date().toISOString().split("T")[0]}.csv`
+        `workshop-${router.query.EventCode}-${
+          new Date().toISOString().split("T")[0]
+        }.csv`
       );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
@@ -204,7 +224,6 @@ export default function Event() {
   if (status !== "authenticated") {
     return null;
   }
-
   return (
     <>
       {toast && (
@@ -223,146 +242,82 @@ export default function Event() {
         />
       )}
       <Layout>
-      <Header
-        session={session}
-        showProfile={showProfile}
-        setShowProfile={setShowProfile}
-      />
-      <Box sx={{ px: 4 }}>
-        <Breadcrumb
-          items={[
-            { label: "Dashboard", href: "/" },
-            { label: `Event ${router.query.EventCode || ""}` },
-          ]}
+        <Header
+          session={session}
+          showProfile={showProfile}
+          setShowProfile={setShowProfile}
         />
-        <Box
-          sx={{
-            mb: 4,
-            pb: 3,
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            flexWrap: "wrap",
-            gap: 3,
-          }}
-        >
-          <Box>
-            <Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.5)", textTransform: "uppercase", letterSpacing: "0.1em", mb: 1 }}>
-              Event Code
-            </Text>
-            <Text sx={{ fontSize: 5, fontWeight: "bold", color: "text" }}>
-              {router.query.EventCode}
-            </Text>
-          </Box>
-          <Button
-            onClick={() => setShowGrantModal(true)}
-            disabled={isGrantButtonDisabled}
-            sx={{
-              bg: isGrantButtonDisabled ? "rgba(255, 255, 255, 0.05)" : "#33D6A6",
-              color: isGrantButtonDisabled ? "rgba(248, 251, 255, 0.3)" : "#000",
-              px: 4,
-              py: 2,
-              borderRadius: 4,
-              fontSize: 2,
-              fontWeight: "bold",
-              cursor: isGrantButtonDisabled ? "not-allowed" : "pointer",
-              border: "none",
-              whiteSpace: "nowrap",
-              "&:hover": {
-                opacity: isGrantButtonDisabled ? 1 : 0.9,
-              },
-            }}
-          >
-            {getGrantButtonText()}
-          </Button>
-        </Box>
-        {!loading && !error && rows.length > 0 && (
+        <Box sx={{ px: 4 }}>
+          <Breadcrumb
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: `Event ${router.query.EventCode || ""}` },
+            ]}
+          />
           <Box
             sx={{
-              display: "flex",
-              gap: 2,
               mb: 4,
-              flexDirection: ["column", "row"],
-              alignItems: ["stretch", "center"],
+              pb: 3,
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              flexWrap: "wrap",
+              gap: 3,
             }}
           >
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{
-                flex: 1,
-                bg: "transparent",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                borderRadius: 4,
-                px: 3,
-                py: 2,
-                color: "text",
-                fontSize: 2,
-                "&:focus": {
-                  outline: "none",
-                  borderColor: "#EC3750",
-                },
-                "&::placeholder": {
-                  color: "rgba(248, 251, 255, 0.3)",
-                },
-              }}
-            />
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              sx={{
-                bg: "transparent",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                borderRadius: 4,
-                px: 3,
-                py: 2,
-                color: "text",
-                fontSize: 2,
-                cursor: "pointer",
-                "&:focus": {
-                  outline: "none",
-                  borderColor: "#EC3750",
-                },
-              }}
-            >
-              <option value="All">All</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-            </Select>
+            <Box>
+              <Text
+                sx={{
+                  fontSize: 1,
+                  color: "rgba(248, 251, 255, 0.5)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  mb: 1,
+                  pr: 2,
+                }}
+              >
+                Event Code
+              </Text>
+              <Text sx={{ fontSize: 4, fontWeight: "bold", color: "text" }}>
+                {router.query.EventCode}
+              </Text>
+            </Box>
             <Button
-              onClick={exportToCSV}
+              onClick={() => setShowGrantModal(true)}
+              disabled={isGrantButtonDisabled}
               sx={{
-                bg: "primary",
-                color: "white",
+                bg: isGrantButtonDisabled
+                  ? "rgba(255, 255, 255, 0.05)"
+                  : "#33D6A6",
+                color: isGrantButtonDisabled
+                  ? "rgba(248, 251, 255, 0.3)"
+                  : "#000",
                 px: 4,
                 py: 2,
-                borderRadius: 4,
+                borderRadius: 8,
                 fontSize: 2,
                 fontWeight: "bold",
-                cursor: "pointer",
+                cursor: isGrantButtonDisabled ? "not-allowed" : "pointer",
                 border: "none",
                 whiteSpace: "nowrap",
                 "&:hover": {
-                  opacity: 0.9,
+                  opacity: isGrantButtonDisabled ? 1 : 0.9,
                 },
+                borderRadius: 8,
               }}
             >
-              Export
+              {getGrantButtonText()}
             </Button>
           </Box>
-        )}
-        <Box sx={{ overflowX: "auto" }}>
-          {loading ? (
-            <SkeletonTable />
-          ) : (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                color: "#f8fbff",
+          {!loading && !error && rows.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                mb: 4,
+                flexDirection: ["column", "row"],
+                alignItems: ["stretch", "center"],
               }}
             >
               <thead>
@@ -468,113 +423,297 @@ export default function Event() {
                 !error &&
                 paginatedRows.map((row, idx) => (
                   <tr
-                    key={`${row.email}-${idx}`}
-                    style={{
-                      borderBottom: "1px solid rgba(248, 251, 255, 0.05)",
-                    }}
+                    style={{ borderBottom: "2px solid rgba(255,255,255,0.1)" }}
                   >
-                    <td style={{ padding: "20px 0", fontSize: "15px", fontWeight: 500 }}>{row.name}</td>
-                    <td style={{ padding: "20px 0", color: "rgba(248, 251, 255, 0.5)", fontSize: "14px" }}>{row.email}</td>
-                    <td style={{ padding: "20px 0" }}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 10px",
-                          borderRadius: "3px",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          background:
-                            row.status === "Pending"
-                              ? "#FFC857"
-                              : row.status === "Approved"
-                              ? "#33D6A6"
-                              : "#EC3750",
-                          color: "#000",
-                        }}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: "20px 0" }}>
-                      <a
-                        href={row.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          color: "#EC3750",
-                          textDecoration: "none",
-                          fontSize: "14px",
-                        }}
-                      >
-                        {row.website}
-                      </a>
-                    </td>
-                    <td style={{ padding: "20px 0", color: "rgba(248, 251, 255, 0.5)", fontSize: "14px", maxWidth: "300px" }}>
-                      {row.decisionReason}
-                    </td>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "0 0 12px 0",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "rgba(248, 251, 255, 0.4)",
+                      }}
+                    >
+                      Name
+                    </th>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "0 0 12px 0",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "rgba(248, 251, 255, 0.4)",
+                      }}
+                    >
+                      Email
+                    </th>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "0 0 12px 0",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "rgba(248, 251, 255, 0.4)",
+                      }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "0 0 12px 0",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "rgba(248, 251, 255, 0.4)",
+                      }}
+                    >
+                      Website
+                    </th>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "0 0 12px 0",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "rgba(248, 251, 255, 0.4)",
+                      }}
+                    >
+                      Reason
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {error && !loading && (
+                    <tr>
+                      <td style={{ padding: "24px 16px" }} colSpan={5}>
+                        <Box
+                          sx={{
+                            textAlign: "center",
+                            py: 3,
+                          }}
+                        >
+                          <Text sx={{ fontSize: 3, mb: 2 }}>⚠️</Text>
+                          <Text
+                            sx={{
+                              fontSize: 2,
+                              fontWeight: "bold",
+                              color: "primary",
+                              mb: 2,
+                            }}
+                          >
+                            Error Loading Data
+                          </Text>
+                          <Text
+                            sx={{
+                              fontSize: 1,
+                              color: "rgba(248, 251, 255, 0.6)",
+                              mb: 3,
+                            }}
+                          >
+                            {error}
+                          </Text>
+                          <Button
+                            onClick={() => {
+                              setError("");
+                              setLoading(true);
+                              const code = router.query.EventCode;
+                              fetch(`/api/websites/${encodeURIComponent(code)}`)
+                                .then((res) => res.json())
+                                .then((json) => {
+                                  if (!json.records)
+                                    throw new Error("No data returned");
+                                  setRawResponse(json.raw ?? json);
+                                  setRows(json.records || []);
+                                })
+                                .catch((err) => {
+                                  setError(
+                                    err?.message || "Failed to load data"
+                                  );
+                                })
+                                .finally(() => {
+                                  setLoading(false);
+                                });
+                            }}
+                            sx={{
+                              bg: "primary",
+                              color: "white",
+                              px: 3,
+                              py: 2,
+                              borderRadius: 8,
+                              fontSize: 1,
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              border: "none",
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                bg: "#ff4961",
+                              },
+                            }}
+                          >
+                            Retry
+                          </Button>
+                        </Box>
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && !error && filteredRows.length === 0 && (
+                    <tr>
+                      <td style={{ padding: "12px 16px" }} colSpan={5}>
+                        No records found.
+                      </td>
+                    </tr>
+                  )}
+                  {!loading &&
+                    !error &&
+                    paginatedRows.map((row, idx) => (
+                      <tr
+                        key={`${row.email}-${idx}`}
+                        style={{
+                          borderBottom: "1px solid rgba(248, 251, 255, 0.05)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "20px 0",
+                            fontSize: "15px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {row.name}
+                        </td>
+                        <td
+                          style={{
+                            padding: "20px 0",
+                            color: "rgba(248, 251, 255, 0.5)",
+                            fontSize: "14px",
+                          }}
+                        >
+                          {row.email}
+                        </td>
+                        <td style={{ padding: "20px 0" }}>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "4px 10px",
+                              borderRadius: 8,
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              background:
+                                row.status === "Pending"
+                                  ? "#FFC857"
+                                  : row.status === "Approved"
+                                  ? "#33D6A6"
+                                  : "#EC3750",
+                              color: "#000",
+                            }}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "20px 0" }}>
+                          <a
+                            href={row.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              color: "#EC3750",
+                              textDecoration: "none",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {row.website}
+                          </a>
+                        </td>
+                        <td
+                          style={{
+                            padding: "20px 0",
+                            color: "rgba(248, 251, 255, 0.5)",
+                            fontSize: "14px",
+                            maxWidth: "300px",
+                          }}
+                        >
+                          {row.decisionReason}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </Box>
+          {!loading && !error && totalPages > 1 && (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 4,
+              }}
+            >
+              <Button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                sx={{
+                  bg: currentPage === 1 ? "transparent" : "primary",
+                  color:
+                    currentPage === 1 ? "rgba(248, 251, 255, 0.3)" : "white",
+                  px: 3,
+                  py: 2,
+                  borderRadius: 8,
+                  fontSize: 2,
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  border: "none",
+                  "&:hover": {
+                    opacity: currentPage === 1 ? 1 : 0.9,
+                  },
+                }}
+              >
+                ← Prev
+              </Button>
+              <Text sx={{ color: "rgba(248, 251, 255, 0.5)", fontSize: 1 }}>
+                {currentPage} / {totalPages}
+              </Text>
+              <Button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                sx={{
+                  bg: currentPage === totalPages ? "transparent" : "primary",
+                  color:
+                    currentPage === totalPages
+                      ? "rgba(248, 251, 255, 0.3)"
+                      : "white",
+                  px: 3,
+                  py: 2,
+                  borderRadius: 8,
+                  fontSize: 2,
+                  cursor:
+                    currentPage === totalPages ? "not-allowed" : "pointer",
+                  border: "none",
+                  "&:hover": {
+                    opacity: currentPage === totalPages ? 1 : 0.9,
+                  },
+                }}
+              >
+                Next →
+              </Button>
+            </Box>
           )}
         </Box>
-        {!loading && !error && totalPages > 1 && (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mt: 4,
-            }}
-          >
-            <Button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              sx={{
-                bg: currentPage === 1 ? "transparent" : "primary",
-                color: currentPage === 1 ? "rgba(248, 251, 255, 0.3)" : "white",
-                px: 3,
-                py: 2,
-                borderRadius: 4,
-                fontSize: 2,
-                cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                border: "none",
-                "&:hover": {
-                  opacity: currentPage === 1 ? 1 : 0.9,
-                },
-              }}
-            >
-              ← Prev
-            </Button>
-            <Text sx={{ color: "rgba(248, 251, 255, 0.5)", fontSize: 1 }}>
-              {currentPage} / {totalPages}
-            </Text>
-            <Button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              sx={{
-                bg: currentPage === totalPages ? "transparent" : "primary",
-                color: currentPage === totalPages ? "rgba(248, 251, 255, 0.3)" : "white",
-                px: 3,
-                py: 2,
-                borderRadius: 4,
-                fontSize: 2,
-                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                border: "none",
-                "&:hover": {
-                  opacity: currentPage === totalPages ? 1 : 0.9,
-                },
-              }}
-            >
-              Next →
-            </Button>
-          </Box>
-        )}
-      </Box>
-      <Footer />
-    </Layout>
+        <Footer />
+      </Layout>
     </>
   );
 }
