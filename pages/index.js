@@ -7,6 +7,7 @@ import WorkshopCard from "../components/workshopCard";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { SkeletonCard } from "../components/Skeleton";
+import { isAdmin as checkIsAdmin } from "../lib/workshopAuth";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -31,9 +32,7 @@ export default function Home() {
     if (status !== "authenticated") return;
 
     // Check if user is admin
-    const adminSlackIds =
-      process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-    const userIsAdmin = adminSlackIds.includes(session.user.SlackID);
+    const userIsAdmin = checkIsAdmin(session);
     setIsAdmin(userIsAdmin);
 
     if (userIsAdmin) {

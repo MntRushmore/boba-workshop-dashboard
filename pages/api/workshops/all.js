@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { isAdmin } from "../../../lib/workshopAuth";
 
 export default async function handler(req, res) {
   // Check authentication
@@ -8,11 +9,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  // Check if user is admin
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
-  const isAdmin = adminSlackIds.includes(session.user.SlackID);
-
-  if (!isAdmin) {
+  // Only admins can list every workshop
+  if (!isAdmin(session)) {
     return res.status(403).json({ error: "Forbidden: Admin access required" });
   }
 

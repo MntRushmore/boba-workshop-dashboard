@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { isAdmin } from "../../../lib/workshopAuth";
 import satori from "satori";
 import sharp from "sharp";
 import { readFileSync } from "fs";
@@ -87,8 +88,7 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session) return res.status(401).json({ error: "Unauthorized" });
 
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-  if (!adminSlackIds.includes(session.user.SlackID)) {
+  if (!isAdmin(session)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
