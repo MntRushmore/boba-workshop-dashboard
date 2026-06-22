@@ -9,7 +9,7 @@ export const authOptions = {
       name: "Hack Club",
       type: "oauth",
       authorization: {
-        params: { scope: "openid profile name slack_id" },
+        params: { scope: "openid profile name slack_id email" },
       },
       id_token: false,
       wellKnown: "https://auth.hackclub.com/.well-known/openid-configuration",
