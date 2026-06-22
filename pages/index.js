@@ -51,11 +51,8 @@ export default function Home() {
         if (userIsAdmin) {
           res = await fetch(`/api/workshops/all`);
         } else {
-          res = await fetch(
-            `/api/workshops/by-owner?email=${encodeURIComponent(
-              session.user.email,
-            )}`,
-          );
+          // Identity is read from the session server-side.
+          res = await fetch(`/api/workshops/by-owner`);
         }
         const json = await res.json();
         if (!res.ok)
@@ -128,37 +125,6 @@ export default function Home() {
         {status === "unauthenticated" && <Text>Redirecting to sign in...</Text>}
         {status === "authenticated" && (
           <>
-            {!isAdmin && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  mb: 4,
-                  px: 3,
-                  py: 2,
-                  borderRadius: 4,
-                  bg: "rgba(51, 142, 218, 0.1)",
-                  border: "1px solid rgba(51, 142, 218, 0.3)",
-                }}
-              >
-                <Text sx={{ fontSize: 2 }}>ℹ️</Text>
-                <Text
-                  sx={{
-                    fontSize: 1,
-                    color: "rgba(248, 251, 255, 0.7)",
-                    lineHeight: "1.4",
-                  }}
-                >
-                  Your Slack email must match the email on your workshop to see
-                  it here. You&apos;re signed in as{" "}
-                  <Text sx={{ color: "text", fontWeight: "bold" }}>
-                    {session.user.email}
-                  </Text>
-                  .
-                </Text>
-              </Box>
-            )}
             {loading && (
               <Grid
                 gap={3}
@@ -209,11 +175,7 @@ export default function Home() {
                   onClick={() => {
                     setError("");
                     setLoading(true);
-                    fetch(
-                      `/api/workshops/by-owner?email=${encodeURIComponent(
-                        session.user.email,
-                      )}`,
-                    )
+                    fetch(`/api/workshops/by-owner`)
                       .then((res) => res.json())
                       .then((json) => {
                         if (!json.records) throw new Error("No data returned");
@@ -248,19 +210,31 @@ export default function Home() {
               </Box>
             )}
             {!loading && !error && events.length === 0 && (
-              <Box
-                sx={{
-                  py: 6,
-                }}
-              >
+              <Box sx={{ py: 6, maxWidth: 560 }}>
                 <Text
-                  sx={{
-                    fontSize: 2,
-                    color: "rgba(248, 251, 255, 0.4)",
-                  }}
+                  sx={{ fontSize: 3, fontWeight: "bold", color: "text", mb: 2 }}
                 >
-                  No workshops yet
+                  No workshops linked to your account yet
                 </Text>
+                {!isAdmin && (
+                  <Text
+                    sx={{
+                      fontSize: 1,
+                      color: "rgba(248, 251, 255, 0.5)",
+                      lineHeight: "1.6",
+                    }}
+                  >
+                    Workshops link automatically to your Hack Club account by
+                    Slack ID or email. You&apos;re signed in as{" "}
+                    <Text sx={{ color: "text", fontWeight: "bold" }}>
+                      {session.user.name || "your account"}
+                    </Text>
+                    {session.user.email ? ` (${session.user.email})` : ""}. If
+                    you started a workshop and don&apos;t see it, the email or
+                    Slack account on it may differ — reach out to a Boba
+                    organizer on Slack to get it linked.
+                  </Text>
+                )}
               </Box>
             )}
             {!loading && !error && events.length > 0 && (
