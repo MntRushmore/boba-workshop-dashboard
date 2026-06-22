@@ -51,7 +51,11 @@ export const authOptions = {
           const identity = data.identity || data;
 
           token.id = identity.id || identity.sub || token.id;
-          token.name = identity.first_name + " " + (identity.last_name || "");
+          const fullName = [identity.first_name, identity.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          token.name = fullName || token.name;
           token.email = identity.email || token.email;
           token.SlackID = identity.slack_id || null;
         } catch (err) {
