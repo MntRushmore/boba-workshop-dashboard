@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
+// Escape a value before it goes into an Airtable filterByFormula string literal.
+const escapeFormulaValue = (value) => String(value).replace(/'/g, "\\'");
+
 export default async function handler(req, res) {
   // Check authentication
   const session = await getServerSession(req, res, authOptions);
@@ -8,33 +11,46 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { email } = req.query;
   const key = process.env.AIRBRIDGE_API_KEY;
-  const airbridgeBase = process.env.DEV === "true" ? "http://localhost:5000" : "https://airbridge.hackclub.com";
+  const airbridgeBase =
+    process.env.DEV === "true"
+      ? "http://localhost:5000"
+      : "https://airbridge.hackclub.com";
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
-  if (!email) return res.status(400).json({ error: "Missing email" });
 
-  // Verify user can only access their own data (unless admin).
-  // Workshops are matched by email: the logged-in Slack email must equal
-  // the workshop's Email field.
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
-  const isAdmin = adminSlackIds.includes(session.user.SlackID);
+  // Identity always comes from the signed-in session, never from the client.
+  // A workshop belongs to this user if EITHER their Hack Club Slack ID matches
+  // the record's "Slack ID" OR their account email matches the record's "Email".
+  // Matching on both keeps linking working when one of them is blank or differs
+  // (e.g. the Slack email doesn't match the email used on the workshop form).
+  const slackId = session.user.SlackID
+    ? String(session.user.SlackID).trim()
+    : "";
+  const email = session.user.email
+    ? String(session.user.email).trim().toLowerCase()
+    : "";
 
-  const requestedEmail = String(email).trim().toLowerCase();
-  const sessionEmail = String(session.user.email || "").trim().toLowerCase();
-
-  if (!isAdmin && sessionEmail !== requestedEmail) {
-    return res.status(403).json({ error: "Forbidden: Can only access your own data" });
+  // No usable identity to match on. Return an empty set rather than building a
+  // formula that could match every record.
+  if (!slackId && !email) {
+    return res.status(200).json({ records: [] });
   }
 
-  // Sanitize email to prevent injection into the filter formula
-  const sanitizedEmail = requestedEmail.replace(/'/g, "\\'");
+  const conditions = [];
+  if (slackId) {
+    conditions.push(`{Slack ID} = '${escapeFormulaValue(slackId)}'`);
+  }
+  if (email) {
+    conditions.push(`LOWER({Email}) = '${escapeFormulaValue(email)}'`);
+  }
+  const filterByFormula =
+    conditions.length > 1 ? `OR(${conditions.join(", ")})` : conditions[0];
 
   try {
     const select = encodeURIComponent(
       JSON.stringify({
         fields: ["Club Names", "Status", "Organizer Name"],
-        filterByFormula: `LOWER({Email}) = '${sanitizedEmail}'`,
+        filterByFormula,
       })
     );
     const base = "Boba%20Club%20Dashboard";
@@ -84,6 +100,7 @@ export default async function handler(req, res) {
         id: r.id || fields.id || null,
         clubName: fields["Club Names"]?.[0] || "",
         status: fields.Status || fields.status || "Pending",
+        organizerName: fields["Organizer Name"] || "",
       };
     });
 
