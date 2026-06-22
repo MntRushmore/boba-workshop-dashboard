@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { canAccessWorkshop } from "../../../lib/workshopAuth";
 
 const REQUEST_TIMEOUT_MS = 40000; // 40s timeout for slow upstreams
 
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
     const eventSelect = encodeURIComponent(
       JSON.stringify({
         filterByFormula: `AND({Club Names} = '${sanitizedCode}', NOT({Status} = 'Rejected'))`,
-        fields: ["Club Names", "Status", "Slack ID"],
+        fields: ["Club Names", "Status", "Slack ID", "Email"],
       }),
     );
     const eventUrl = `${airbridgeBase}/v0.2/${base}/Club%20Workshops?select=${eventSelect}&authKey=${key}`;
@@ -69,11 +70,15 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "Event code not found" });
     }
 
-    const adminSlackIds =
-      process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-    const isAdmin = adminSlackIds.includes(session.user.SlackID);
-    const eventSlackId = eventRecords[0]?.fields?.["Slack ID"];
-    if (!isAdmin && session.user.SlackID !== eventSlackId) {
+    // Authorize against every matching workshop record: the organizer owns the
+    // club if their Slack ID or email matches any of them (admins pass through).
+    const canAccess = eventRecords.some((r) =>
+      canAccessWorkshop(session, {
+        slackId: r?.fields?.["Slack ID"],
+        email: r?.fields?.["Email"],
+      })
+    );
+    if (!canAccess) {
       return res
         .status(403)
         .json({ error: "Forbidden: Not the organizer for this club" });

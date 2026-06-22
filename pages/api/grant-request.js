@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
+import { canAccessWorkshop, isAdmin } from "../../lib/workshopAuth";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -42,43 +43,43 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  {
-    const adminSlackIds =
-      process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-    const isAdmin = adminSlackIds.includes(session.user.SlackID);
-    if (!isAdmin) {
-      const sanitizedClub = String(clubName).replace(/'/g, "\\'");
-      const select = encodeURIComponent(
-        JSON.stringify({
-          filterByFormula: `AND({Club Names} = '${sanitizedClub}', NOT({Status} = 'Rejected'))`,
-          fields: ["Club Names", "Slack ID"],
-        }),
-      );
-      const clubUrl = `${airbridgeBase}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${select}&authKey=${key}`;
-      let clubResp;
+  if (!isAdmin(session)) {
+    const sanitizedClub = String(clubName).replace(/'/g, "\\'");
+    const select = encodeURIComponent(
+      JSON.stringify({
+        filterByFormula: `AND({Club Names} = '${sanitizedClub}', NOT({Status} = 'Rejected'))`,
+        fields: ["Club Names", "Slack ID", "Email"],
+      }),
+    );
+    const clubUrl = `${airbridgeBase}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${select}&authKey=${key}`;
+    let clubResp;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 8000);
-        try {
-          clubResp = await fetch(clubUrl, { signal: controller.signal });
-        } finally {
-          clearTimeout(timer);
-        }
-      } catch (err) {
-        if (err.name === "AbortError")
-          return res.status(504).json({ error: "Club lookup timed out" });
-        throw err;
+        clubResp = await fetch(clubUrl, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
       }
-      const clubJson = await clubResp.json().catch(() => null);
-      const clubRecords = Array.isArray(clubJson)
-        ? clubJson
-        : clubJson?.records || clubJson?.data || [];
-      const clubSlackId = clubRecords[0]?.fields?.["Slack ID"];
-      if (!clubSlackId || session.user.SlackID !== clubSlackId) {
-        return res
-          .status(403)
-          .json({ error: "Forbidden: Not the organizer for this club" });
-      }
+    } catch (err) {
+      if (err.name === "AbortError")
+        return res.status(504).json({ error: "Club lookup timed out" });
+      throw err;
+    }
+    const clubJson = await clubResp.json().catch(() => null);
+    const clubRecords = Array.isArray(clubJson)
+      ? clubJson
+      : clubJson?.records || clubJson?.data || [];
+    const canAccess = clubRecords.some((r) =>
+      canAccessWorkshop(session, {
+        slackId: r?.fields?.["Slack ID"],
+        email: r?.fields?.["Email"],
+      }),
+    );
+    if (!canAccess) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: Not the organizer for this club" });
     }
   }
 
