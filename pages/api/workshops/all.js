@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 	// Check if user is admin
 	const adminSlackIds =
 		process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-	const isAdmin = adminSlackIds.includes(session.user.SlackID);
+	const isAdmin = adminSlackIds.includes(session.user.slack_id);
 
 	if (!isAdmin) {
 		return res.status(403).json({ error: "Forbidden: Admin access required" });

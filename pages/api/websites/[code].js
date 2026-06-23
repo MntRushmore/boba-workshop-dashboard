@@ -71,9 +71,9 @@ export default async function handler(req, res) {
 
 		const adminSlackIds =
 			process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-		const isAdmin = adminSlackIds.includes(session.user.SlackID);
+		const isAdmin = adminSlackIds.includes(session.user.slack_id);
 		const eventSlackId = eventRecords[0]?.fields?.["Slack ID"];
-		if (!isAdmin && session.user.SlackID !== eventSlackId) {
+		if (!isAdmin && session.user.slack_id !== eventSlackId) {
 			return res
 				.status(403)
 				.json({ error: "Forbidden: Not the organizer for this club" });

@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
 	const adminSlackIds =
 		process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-	if (!adminSlackIds.includes(session.user.SlackID)) {
+	if (!adminSlackIds.includes(session.user.slack_id)) {
 		return res.status(403).json({ error: "Forbidden" });
 	}
 

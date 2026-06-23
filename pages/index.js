@@ -33,7 +33,7 @@ export default function Home() {
 		// Check if user is admin
 		const adminSlackIds =
 			process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-		const userIsAdmin = adminSlackIds.includes(session.user.SlackID);
+		const userIsAdmin = adminSlackIds.includes(session.user.slack_id);
 		setIsAdmin(userIsAdmin);
 
 		if (userIsAdmin) {
@@ -54,7 +54,7 @@ export default function Home() {
 					res = await fetch(
 						`/api/workshops/by-owner?email=${encodeURIComponent(
 							session.user.email,
-						)}`,
+						)}&slack_id=${encodeURIComponent(session.user.slack_id)}`,
 					);
 				}
 				const json = await res.json();
@@ -128,37 +128,6 @@ export default function Home() {
 				{status === "unauthenticated" && <Text>Redirecting to sign in...</Text>}
 				{status === "authenticated" && (
 					<>
-						{!isAdmin && (
-							<Box
-								sx={{
-									display: "flex",
-									alignItems: "center",
-									gap: 2,
-									mb: 4,
-									px: 3,
-									py: 2,
-									borderRadius: 4,
-									bg: "rgba(51, 142, 218, 0.1)",
-									border: "1px solid rgba(51, 142, 218, 0.3)",
-								}}
-							>
-								<Text sx={{ fontSize: 2 }}>ℹ️</Text>
-								<Text
-									sx={{
-										fontSize: 1,
-										color: "rgba(248, 251, 255, 0.7)",
-										lineHeight: "1.4",
-									}}
-								>
-									Your Slack email must match the email on your workshop to see
-									it here. You&apos;re signed in as{" "}
-									<Text sx={{ color: "text", fontWeight: "bold" }}>
-										{session.user.email}
-									</Text>
-									.
-								</Text>
-							</Box>
-						)}
 						{loading && (
 							<Grid
 								gap={3}
@@ -173,7 +142,10 @@ export default function Home() {
 						{error && !loading && (
 							<Box
 								sx={{
+									display: "flex",
+									flexDirection: "column",
 									textAlign: "center",
+									alignItems: "center",
 									py: 4,
 									px: 4,
 								}}
@@ -212,7 +184,7 @@ export default function Home() {
 										fetch(
 											`/api/workshops/by-owner?email=${encodeURIComponent(
 												session.user.email,
-											)}`,
+											)}&slack_id=${encodeURIComponent(session.user.slack_id)}`,
 										)
 											.then((res) => res.json())
 											.then((json) => {
@@ -235,6 +207,7 @@ export default function Home() {
 										py: 2,
 										borderRadius: 4,
 										fontSize: 2,
+										maxWidth: "200px",
 										fontWeight: "bold",
 										cursor: "pointer",
 										border: "none",

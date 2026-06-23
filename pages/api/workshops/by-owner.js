@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 		return res.status(401).json({ error: "Unauthorized" });
 	}
 
-	const { email } = req.query;
+	const { email, slack_id } = req.query;
 	const key = process.env.AIRBRIDGE_API_KEY;
 	const airbridgeBase =
 		process.env.DEV === "true"
@@ -16,33 +16,40 @@ export default async function handler(req, res) {
 			: "https://airbridge.hackclub.com";
 	if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 	if (!email) return res.status(400).json({ error: "Missing email" });
+	if (!slack_id) return res.status(400).json({ error: "Missing slack_id" });
 
 	// Verify user can only access their own data (unless admin).
 	// Workshops are matched by email: the logged-in Slack email must equal
 	// the workshop's Email field.
 	const adminSlackIds =
 		process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-	const isAdmin = adminSlackIds.includes(session.user.SlackID);
+	const isAdmin = adminSlackIds.includes(session.user.slack_id);
 
 	const requestedEmail = String(email).trim().toLowerCase();
 	const sessionEmail = String(session.user.email || "")
 		.trim()
 		.toLowerCase();
+	const requestedSlackId = String(slack_id).trim();
 
-	if (!isAdmin && sessionEmail !== requestedEmail) {
+	if (
+		!isAdmin &&
+		(sessionEmail !== requestedEmail ||
+			session.user.slack_id !== requestedSlackId)
+	) {
 		return res
 			.status(403)
 			.json({ error: "Forbidden: Can only access your own data" });
 	}
 
-	// Sanitize email to prevent injection into the filter formula
+	// Sanitize email and slack id to prevent injection into the filter formula
 	const sanitizedEmail = requestedEmail.replace(/'/g, "\\'");
+	const sanitizedSlackId = requestedSlackId.replace(/'/g, "\\'");
 
 	try {
 		const select = encodeURIComponent(
 			JSON.stringify({
 				fields: ["Club Names", "Status", "Organizer Name"],
-				filterByFormula: `LOWER({Email}) = '${sanitizedEmail}'`,
+				filterByFormula: `OR({Email} = '${sanitizedEmail}', {Slack ID} = '${sanitizedSlackId}')`,
 			}),
 		);
 		const base = "Boba%20Club%20Dashboard";

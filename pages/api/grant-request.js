@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 	{
 		const adminSlackIds =
 			process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-		const isAdmin = adminSlackIds.includes(session.user.SlackID);
+		const isAdmin = adminSlackIds.includes(session.user.slack_id);
 		if (!isAdmin) {
 			const sanitizedClub = String(clubName).replace(/'/g, "\\'");
 			const select = encodeURIComponent(
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
 				? clubJson
 				: clubJson?.records || clubJson?.data || [];
 			const clubSlackId = clubRecords[0]?.fields?.["Slack ID"];
-			if (!clubSlackId || session.user.SlackID !== clubSlackId) {
+			if (!clubSlackId || session.user.slack_id !== clubSlackId) {
 				return res
 					.status(403)
 					.json({ error: "Forbidden: Not the organizer for this club" });

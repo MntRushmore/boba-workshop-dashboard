@@ -170,7 +170,8 @@ export default function Event() {
 			link.setAttribute("href", url);
 			link.setAttribute(
 				"download",
-				`workshop-${router.query.ClubName}-${new Date().toISOString().split("T")[0]
+				`workshop-${router.query.ClubName}-${
+					new Date().toISOString().split("T")[0]
 				}.csv`,
 			);
 			link.style.visibility = "hidden";
@@ -444,9 +445,7 @@ export default function Event() {
 								<tbody>
 									{error && !loading && (
 										<tr>
-											<td
-												style={{ padding: "24px 16px" }}
-												colSpan={5}>
+											<td style={{ padding: "24px 16px" }} colSpan={5}>
 												<Box
 													sx={{
 														display: "flex",
@@ -490,7 +489,9 @@ export default function Event() {
 																	setRows(json.records || []);
 																})
 																.catch((err) => {
-																	setError(err?.message || "Failed to load data");
+																	setError(
+																		err?.message || "Failed to load data",
+																	);
 																})
 																.finally(() => {
 																	setLoading(false);
@@ -667,7 +668,7 @@ export default function Event() {
 					)}
 				</Box>
 				<Footer />
-			</Layout >
+			</Layout>
 		</>
 	);
 }

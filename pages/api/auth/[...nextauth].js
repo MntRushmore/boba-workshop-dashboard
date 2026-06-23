@@ -18,8 +18,9 @@ export const authOptions = {
 			profile(profile) {
 				return {
 					id: profile.sub,
-					name: profile.name || profile.profile?.name,
-					email: profile.email || profile.profile?.email,
+					name: profile.name,
+					email: profile.email,
+					slack_id: profile.slack_id,
 				};
 			},
 			httpOptions: {
@@ -31,29 +32,46 @@ export const authOptions = {
 		async jwt({ token, account }) {
 			if (account?.access_token) {
 				try {
-					const res = await fetch("https://auth.hackclub.com/api/v1/me", {
+					const authRes = await fetch("https://auth.hackclub.com/api/v1/me", {
 						headers: {
 							Authorization: `Bearer ${account.access_token}`,
 							Accept: "application/json",
 						},
 					});
 
-					if (!res.ok) {
+					if (!authRes.ok) {
 						console.error(
 							"Failed to fetch /api/v1/me:",
-							res.status,
-							res.statusText,
+							authRes.status,
+							authRes.statusText,
 						);
 						return token;
 					}
 
-					const data = await res.json();
-					const identity = data.identity || data;
+					const authData = await authRes.json();
+					const identity = authData.identity || authData;
+
+					const cachetRes = await fetch(
+						`https://cachet.dunkirk.sh/users/${identity.slack_id}`,
+						{
+							headers: {
+								Authorization: `Bearer ${account.access_token}`,
+								Accept: "application/json",
+							},
+						},
+					);
+
+					const cachetData = await cachetRes.json(); // Doesnt need to pass sicne we have fallbacks
 
 					token.id = identity.id || identity.sub || token.id;
-					token.name = `${identity.first_name} ${identity.last_name || ""}`;
+					token.name =
+						cachetData.displayName ||
+						`${identity.first_name} ${identity.last_name || ""}`;
 					token.email = identity.email || token.email;
-					token.SlackID = identity.slack_id || null;
+					token.slack_id = identity.slack_id || null;
+					token.image =
+						cachetData.imageUrl ||
+						`https://cachet.hackclub.com/users/${token.slack_id || token.id}/r`;
 				} catch (err) {
 					console.error("Error calling /api/v1/me", err);
 				}
@@ -67,8 +85,10 @@ export const authOptions = {
 				id: token.id,
 				name: token.name,
 				email: token.email,
-				SlackID: token.SlackID,
+				slack_id: token.slack_id,
+				image: token.image,
 			};
+
 			return session;
 		},
 	},

@@ -43,7 +43,7 @@ export default function Header({ session, showProfile, setShowProfile }) {
 					variant="secondary"
 					onClick={() => setShowProfile((prev) => !prev)}
 					sx={{
-						p: 2,
+						p: 0,
 						borderRadius: "50%",
 						display: "flex",
 						alignItems: "center",
@@ -62,8 +62,9 @@ export default function Header({ session, showProfile, setShowProfile }) {
 							src={session.user.image}
 							alt="Profile"
 							sx={{
-								width: 32,
-								height: 32,
+								width: 44,
+								height: 44,
+								border: "2px solid rgba(255, 255, 255, 0.2)",
 								borderRadius: "50%",
 								objectFit: "cover",
 							}}

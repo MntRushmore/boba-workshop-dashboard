@@ -192,17 +192,20 @@ export default function GrantRequestModal({
 						>
 							<option
 								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="Reimbursement">
+								value="Reimbursement"
+							>
 								Reimbursement
 							</option>
 							<option
 								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="HCB Org Transfer">
+								value="HCB Org Transfer"
+							>
 								HCB Org Transfer
 							</option>
 							<option
 								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="Grant Card">
+								value="Grant Card"
+							>
 								Grant Card
 							</option>
 						</Select>
