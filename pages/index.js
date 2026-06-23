@@ -11,6 +11,7 @@ import { SkeletonCard } from "../components/Skeleton";
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
   const [showProfile, setShowProfile] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,9 @@ export default function Home() {
     }
 
     const fetchEvents = async () => {
+      // GUARD CLAUSE: Prevent request if user isn't admin and email isn't loaded yet
+      if (!userIsAdmin && !session?.user?.email) return;
+
       setLoading(true);
       setError("");
       try {
@@ -81,7 +85,6 @@ export default function Home() {
       return matchesSearch && matchesStatus;
     });
 
-    // Sort the filt  ered results
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === "code") {
         if (!a.clubName && b.clubName) return 1;
@@ -153,7 +156,7 @@ export default function Home() {
                   Your Slack email must match the email on your workshop to see
                   it here. You&apos;re signed in as{" "}
                   <Text sx={{ color: "text", fontWeight: "bold" }}>
-                    {session.user.email}
+                    {session?.user?.email}
                   </Text>
                   .
                 </Text>
@@ -178,14 +181,7 @@ export default function Home() {
                   px: 4,
                 }}
               >
-                <Text
-                  sx={{
-                    fontSize: 4,
-                    mb: 2,
-                  }}
-                >
-                  ⚠️
-                </Text>
+                <Text sx={{ fontSize: 4, mb: 2 }}>⚠️</Text>
                 <Text
                   sx={{
                     fontSize: 3,
@@ -207,6 +203,10 @@ export default function Home() {
                 </Text>
                 <Button
                   onClick={() => {
+                    if (!isAdmin && !session?.user?.email) {
+                      setError("Session email not found. Please re-login.");
+                      return;
+                    }
                     setError("");
                     setLoading(true);
                     fetch(
@@ -216,7 +216,7 @@ export default function Home() {
                     )
                       .then((res) => res.json())
                       .then((json) => {
-                        if (!json.records) throw new Error("No data returned");
+                        if (!json.records) throw new Error(json?.error || "No data returned");
                         setEvents(json.records || []);
                       })
                       .catch((err) => {
@@ -248,17 +248,8 @@ export default function Home() {
               </Box>
             )}
             {!loading && !error && events.length === 0 && (
-              <Box
-                sx={{
-                  py: 6,
-                }}
-              >
-                <Text
-                  sx={{
-                    fontSize: 2,
-                    color: "rgba(248, 251, 255, 0.4)",
-                  }}
-                >
+              <Box sx={{ py: 6 }}>
+                <Text sx={{ fontSize: 2, color: "rgba(248, 251, 255, 0.4)" }}>
                   No workshops yet
                 </Text>
               </Box>
@@ -285,15 +276,11 @@ export default function Home() {
                     >
                       Total Workshops
                     </Text>
-                    <Text
-                      sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}
-                    >
+                    <Text sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}>
                       {stats.total}
                     </Text>
                   </Box>
-                  <Box
-                    sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
-                  />
+                  <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                     <Text
                       sx={{
@@ -305,15 +292,11 @@ export default function Home() {
                     >
                       Active
                     </Text>
-                    <Text
-                      sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}
-                    >
+                    <Text sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}>
                       {stats.active}
                     </Text>
                   </Box>
-                  <Box
-                    sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
-                  />
+                  <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                     <Text
                       sx={{
@@ -350,9 +333,7 @@ export default function Home() {
                       alignItems: "baseline",
                     }}
                   >
-                    <Box
-                      sx={{ display: "flex", alignItems: "baseline", gap: 2 }}
-                    >
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                       <Text
                         sx={{
                           fontSize: 1,
@@ -363,18 +344,12 @@ export default function Home() {
                       >
                         Submissions
                       </Text>
-                      <Text
-                        sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}
-                      >
+                      <Text sx={{ fontSize: 6, fontWeight: "bold", color: "text" }}>
                         {adminStats.totalSubmissions}
                       </Text>
                     </Box>
-                    <Box
-                      sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
-                    />
-                    <Box
-                      sx={{ display: "flex", alignItems: "baseline", gap: 2 }}
-                    >
+                    <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                       <Text
                         sx={{
                           fontSize: 1,
@@ -385,22 +360,12 @@ export default function Home() {
                       >
                         Approved
                       </Text>
-                      <Text
-                        sx={{
-                          fontSize: 6,
-                          fontWeight: "bold",
-                          color: "#33D6A6",
-                        }}
-                      >
+                      <Text sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}>
                         {adminStats.approvedSubmissions}
                       </Text>
                     </Box>
-                    <Box
-                      sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
-                    />
-                    <Box
-                      sx={{ display: "flex", alignItems: "baseline", gap: 2 }}
-                    >
+                    <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                       <Text
                         sx={{
                           fontSize: 1,
@@ -411,22 +376,12 @@ export default function Home() {
                       >
                         Given Out
                       </Text>
-                      <Text
-                        sx={{
-                          fontSize: 6,
-                          fontWeight: "bold",
-                          color: "#EC3750",
-                        }}
-                      >
+                      <Text sx={{ fontSize: 6, fontWeight: "bold", color: "#EC3750" }}>
                         ${adminStats.moneyGivenOut}
                       </Text>
                     </Box>
-                    <Box
-                      sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }}
-                    />
-                    <Box
-                      sx={{ display: "flex", alignItems: "baseline", gap: 2 }}
-                    >
+                    <Box sx={{ width: "1px", bg: "rgba(255,255,255,0.1)", mx: 2 }} />
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                       <Text
                         sx={{
                           fontSize: 1,
@@ -437,19 +392,11 @@ export default function Home() {
                       >
                         Schools Reached
                       </Text>
-                      <Text
-                        sx={{
-                          fontSize: 6,
-                          fontWeight: "bold",
-                          color: "#338eda",
-                        }}
-                      >
+                      <Text sx={{ fontSize: 6, fontWeight: "bold", color: "#338eda" }}>
                         {adminStats.schoolsReached}
                       </Text>
                     </Box>
-                    <Box
-                      sx={{ ml: "auto", display: "flex", alignItems: "center" }}
-                    >
+                    <Box sx={{ ml: "auto", display: "flex", alignItems: "center" }}>
                       <button
                         onClick={() => {
                           const params = new URLSearchParams({
@@ -496,9 +443,7 @@ export default function Home() {
                   }}
                 >
                   <Input
-                    placeholder={
-                      isAdmin ? "Search by code or organizer..." : "Search..."
-                    }
+                    placeholder={isAdmin ? "Search by code or organizer..." : "Search..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     sx={{
@@ -567,20 +512,11 @@ export default function Home() {
                 </Box>
               </>
             )}
-            {!loading &&
-              !error &&
-              filteredEvents.length === 0 &&
-              events.length > 0 && (
-                <Text>No workshops match your filters.</Text>
-              )}
+            {!loading && !error && filteredEvents.length === 0 && events.length > 0 && (
+              <Text>No workshops match your filters.</Text>
+            )}
             {!loading && !error && filteredEvents.length > 0 && (
-              <Grid
-                gap={3}
-                columns={[1, 2, 3]}
-                sx={{
-                  width: "100%",
-                }}
-              >
+              <Grid gap={3} columns={[1, 2, 3]} sx={{ width: "100%" }}>
                 {filteredEvents.map((ev) => (
                   <WorkshopCard
                     key={ev.id || ev.clubName}
