@@ -1,33 +1,39 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import satori from "satori";
 import sharp from "sharp";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { authOptions } from "../auth/[...nextauth]";
 
 // Load a font for satori (it requires at least one)
 // Use the system font bundled with satori if available, otherwise skip weight 900 styles
 let fontData;
 try {
-  // Try to load Inter from @fontsource if present
-  fontData = readFileSync(
-    join(process.cwd(), "node_modules/@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff")
-  );
+	// Try to load Inter from @fontsource if present
+	fontData = readFileSync(
+		join(
+			process.cwd(),
+			"node_modules/@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff",
+		),
+	);
 } catch {
-  try {
-    fontData = readFileSync(
-      join(process.cwd(), "node_modules/@fontsource/space-grotesk/files/space-grotesk-latin-400-normal.woff")
-    );
-  } catch {
-    // Fall back to the Geist font bundled with @vercel/og if installed
-    try {
-      fontData = readFileSync(
-        join(process.cwd(), "node_modules/@vercel/og/dist/Geist-Regular.ttf")
-      );
-    } catch {
-      fontData = null;
-    }
-  }
+	try {
+		fontData = readFileSync(
+			join(
+				process.cwd(),
+				"node_modules/@fontsource/space-grotesk/files/space-grotesk-latin-400-normal.woff",
+			),
+		);
+	} catch {
+		// Fall back to the Geist font bundled with @vercel/og if installed
+		try {
+			fontData = readFileSync(
+				join(process.cwd(), "node_modules/@vercel/og/dist/Geist-Regular.ttf"),
+			);
+		} catch {
+			fontData = null;
+		}
+	}
 }
 
 // Boba Drops logo SVG (from boba.hackclub.com) — embedded as a data URI for satori
@@ -36,226 +42,305 @@ const LOGO_SVG = `<svg viewBox="0 0 337 154" fill="none" xmlns="http://www.w3.or
 const LOGO_DATA_URI = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toString("base64")}`;
 
 function statBlock(label, value, color) {
-  const labelColor = color === "#ffffff" ? "rgba(255,255,255,0.45)" : color;
-  return {
-    type: "div",
-    props: {
-      style: { display: "flex", flexDirection: "column", gap: "4px" },
-      children: [
-        {
-          type: "div",
-          props: {
-            style: {
-              fontSize: "12px",
-              fontWeight: "700",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: labelColor,
-            },
-            children: label,
-          },
-        },
-        {
-          type: "div",
-          props: {
-            style: {
-              fontSize: "72px",
-              fontWeight: "700",
-              lineHeight: "1",
-              color: color,
-            },
-            children: value,
-          },
-        },
-      ],
-    },
-  };
+	const labelColor = color === "#ffffff" ? "rgba(255,255,255,0.45)" : color;
+	return {
+		type: "div",
+		props: {
+			style: { display: "flex", flexDirection: "column", gap: "4px" },
+			children: [
+				{
+					type: "div",
+					props: {
+						style: {
+							fontSize: "12px",
+							fontWeight: "700",
+							letterSpacing: "0.12em",
+							textTransform: "uppercase",
+							color: labelColor,
+						},
+						children: label,
+					},
+				},
+				{
+					type: "div",
+					props: {
+						style: {
+							fontSize: "72px",
+							fontWeight: "700",
+							lineHeight: "1",
+							color: color,
+						},
+						children: value,
+					},
+				},
+			],
+		},
+	};
 }
 
 function divider(vertical = true) {
-  return {
-    type: "div",
-    props: {
-      style: vertical
-        ? { width: "1px", height: "180px", background: "rgba(255,255,255,0.08)", margin: "0 40px", alignSelf: "center" }
-        : { height: "1px", width: "100%", background: "rgba(255,255,255,0.07)", margin: "0" },
-    },
-  };
+	return {
+		type: "div",
+		props: {
+			style: vertical
+				? {
+						width: "1px",
+						height: "180px",
+						background: "rgba(255,255,255,0.08)",
+						margin: "0 40px",
+						alignSelf: "center",
+					}
+				: {
+						height: "1px",
+						width: "100%",
+						background: "rgba(255,255,255,0.07)",
+						margin: "0",
+					},
+		},
+	};
 }
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) return res.status(401).json({ error: "Unauthorized" });
+	const session = await getServerSession(req, res, authOptions);
+	if (!session) return res.status(401).json({ error: "Unauthorized" });
 
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
-  if (!adminSlackIds.includes(session.user.SlackID)) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
+	const adminSlackIds =
+		process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
+	if (!adminSlackIds.includes(session.user.SlackID)) {
+		return res.status(403).json({ error: "Forbidden" });
+	}
 
-  const totalWorkshops = Number(req.query.totalWorkshops) || 0;
-  const activeWorkshops = Number(req.query.activeWorkshops) || 0;
-  const totalSubmissions = Number(req.query.totalSubmissions) || 0;
-  const approvedSubmissions = Number(req.query.approvedSubmissions) || 0;
-  const moneyGivenOut = Number(req.query.moneyGivenOut) || 0;
-  const schoolsReached = Number(req.query.schoolsReached) || 0;
+	const totalWorkshops = Number(req.query.totalWorkshops) || 0;
+	const activeWorkshops = Number(req.query.activeWorkshops) || 0;
+	const totalSubmissions = Number(req.query.totalSubmissions) || 0;
+	const approvedSubmissions = Number(req.query.approvedSubmissions) || 0;
+	const moneyGivenOut = Number(req.query.moneyGivenOut) || 0;
+	const schoolsReached = Number(req.query.schoolsReached) || 0;
 
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
-  });
+	const dateStr = new Date().toLocaleDateString("en-US", {
+		month: "long",
+		day: "numeric",
+		year: "numeric",
+	});
 
-  const fonts = fontData
-    ? [{ name: "Sans", data: fontData, weight: 700, style: "normal" }]
-    : [];
+	const fonts = fontData
+		? [{ name: "Sans", data: fontData, weight: 700, style: "normal" }]
+		: [];
 
-  const tree = {
-    type: "div",
-    props: {
-      style: {
-        width: "1200px",
-        height: "630px",
-        background: "#0d0f14",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "52px 64px",
-        fontFamily: fonts.length ? "Sans" : "sans-serif",
-      },
-      children: [
-        // Header: logo + site
-        {
-          type: "div",
-          props: {
-            style: { display: "flex", alignItems: "center", gap: "20px" },
-            children: [
-              {
-                type: "img",
-                props: {
-                  src: LOGO_DATA_URI,
-                  width: 168,
-                  height: 77,
-                  style: { objectFit: "contain" },
-                },
-              },
-              {
-                type: "div",
-                props: {
-                  style: { width: "1px", height: "36px", background: "rgba(255,255,255,0.15)", marginLeft: "4px" },
-                },
-              },
-              {
-                type: "div",
-                props: {
-                  style: { display: "flex", flexDirection: "column", marginLeft: "4px" },
-                  children: [
-                    {
-                      type: "div",
-                      props: {
-                        style: { fontSize: "12px", color: "rgba(255,255,255,0.35)", letterSpacing: "0.12em", textTransform: "uppercase" },
-                        children: "boba.hackclub.com",
-                      },
-                    },
-                    {
-                      type: "div",
-                      props: {
-                        style: { fontSize: "18px", fontWeight: "700", color: "rgba(255,255,255,0.8)", marginTop: "3px" },
-                        children: "Workshop Stats",
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        },
+	const tree = {
+		type: "div",
+		props: {
+			style: {
+				width: "1200px",
+				height: "630px",
+				background: "#0d0f14",
+				display: "flex",
+				flexDirection: "column",
+				justifyContent: "space-between",
+				padding: "52px 64px",
+				fontFamily: fonts.length ? "Sans" : "sans-serif",
+			},
+			children: [
+				// Header: logo + site
+				{
+					type: "div",
+					props: {
+						style: { display: "flex", alignItems: "center", gap: "20px" },
+						children: [
+							{
+								type: "img",
+								props: {
+									src: LOGO_DATA_URI,
+									width: 168,
+									height: 77,
+									style: { objectFit: "contain" },
+								},
+							},
+							{
+								type: "div",
+								props: {
+									style: {
+										width: "1px",
+										height: "36px",
+										background: "rgba(255,255,255,0.15)",
+										marginLeft: "4px",
+									},
+								},
+							},
+							{
+								type: "div",
+								props: {
+									style: {
+										display: "flex",
+										flexDirection: "column",
+										marginLeft: "4px",
+									},
+									children: [
+										{
+											type: "div",
+											props: {
+												style: {
+													fontSize: "12px",
+													color: "rgba(255,255,255,0.35)",
+													letterSpacing: "0.12em",
+													textTransform: "uppercase",
+												},
+												children: "boba.hackclub.com",
+											},
+										},
+										{
+											type: "div",
+											props: {
+												style: {
+													fontSize: "18px",
+													fontWeight: "700",
+													color: "rgba(255,255,255,0.8)",
+													marginTop: "3px",
+												},
+												children: "Workshop Stats",
+											},
+										},
+									],
+								},
+							},
+						],
+					},
+				},
 
-        // Stats row
-        {
-          type: "div",
-          props: {
-            style: { display: "flex", alignItems: "center", flex: 1, marginTop: "8px" },
-            children: [
-              // Left cluster: workshop counts
-              {
-                type: "div",
-                props: {
-                  style: { display: "flex", flexDirection: "column", gap: "32px" },
-                  children: [
-                    statBlock("Total Workshops", totalWorkshops.toLocaleString(), "#ffffff"),
-                    statBlock("Active", activeWorkshops.toLocaleString(), "#33D6A6"),
-                  ],
-                },
-              },
+				// Stats row
+				{
+					type: "div",
+					props: {
+						style: {
+							display: "flex",
+							alignItems: "center",
+							flex: 1,
+							marginTop: "8px",
+						},
+						children: [
+							// Left cluster: workshop counts
+							{
+								type: "div",
+								props: {
+									style: {
+										display: "flex",
+										flexDirection: "column",
+										gap: "32px",
+									},
+									children: [
+										statBlock(
+											"Total Workshops",
+											totalWorkshops.toLocaleString(),
+											"#ffffff",
+										),
+										statBlock(
+											"Active",
+											activeWorkshops.toLocaleString(),
+											"#33D6A6",
+										),
+									],
+								},
+							},
 
-              divider(true),
+							divider(true),
 
-              // Right cluster: impact stats (2x2 grid)
-              {
-                type: "div",
-                props: {
-                  style: { display: "flex", flex: 1, flexWrap: "wrap", gap: "32px 48px" },
-                  children: [
-                    statBlock("Submissions", totalSubmissions.toLocaleString(), "#ffffff"),
-                    statBlock("Approved", approvedSubmissions.toLocaleString(), "#33D6A6"),
-                    statBlock("Given Out", `$${moneyGivenOut.toLocaleString()}`, "#EC3750"),
-                    statBlock("Schools Reached", schoolsReached.toLocaleString(), "#338eda"),
-                  ],
-                },
-              },
-            ],
-          },
-        },
+							// Right cluster: impact stats (2x2 grid)
+							{
+								type: "div",
+								props: {
+									style: {
+										display: "flex",
+										flex: 1,
+										flexWrap: "wrap",
+										gap: "32px 48px",
+									},
+									children: [
+										statBlock(
+											"Submissions",
+											totalSubmissions.toLocaleString(),
+											"#ffffff",
+										),
+										statBlock(
+											"Approved",
+											approvedSubmissions.toLocaleString(),
+											"#33D6A6",
+										),
+										statBlock(
+											"Given Out",
+											`$${moneyGivenOut.toLocaleString()}`,
+											"#EC3750",
+										),
+										statBlock(
+											"Schools Reached",
+											schoolsReached.toLocaleString(),
+											"#338eda",
+										),
+									],
+								},
+							},
+						],
+					},
+				},
 
-        // Footer
-        {
-          type: "div",
-          props: {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderTop: "1px solid rgba(255,255,255,0.07)",
-              paddingTop: "18px",
-            },
-            children: [
-              {
-                type: "div",
-                props: {
-                  style: { fontSize: "12px", color: "rgba(255,255,255,0.22)", letterSpacing: "0.05em" },
-                  children: `Generated ${dateStr}`,
-                },
-              },
-              {
-                type: "div",
-                props: {
-                  style: { fontSize: "12px", color: "rgba(255,255,255,0.22)", letterSpacing: "0.05em" },
-                  children: "Hack Club Boba Drops",
-                },
-              },
-            ],
-          },
-        },
-      ],
-    },
-  };
+				// Footer
+				{
+					type: "div",
+					props: {
+						style: {
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							borderTop: "1px solid rgba(255,255,255,0.07)",
+							paddingTop: "18px",
+						},
+						children: [
+							{
+								type: "div",
+								props: {
+									style: {
+										fontSize: "12px",
+										color: "rgba(255,255,255,0.22)",
+										letterSpacing: "0.05em",
+									},
+									children: `Generated ${dateStr}`,
+								},
+							},
+							{
+								type: "div",
+								props: {
+									style: {
+										fontSize: "12px",
+										color: "rgba(255,255,255,0.22)",
+										letterSpacing: "0.05em",
+									},
+									children: "Hack Club Boba Drops",
+								},
+							},
+						],
+					},
+				},
+			],
+		},
+	};
 
-  try {
-    const svg = await satori(tree, {
-      width: 1200,
-      height: 630,
-      fonts,
-    });
+	try {
+		const svg = await satori(tree, {
+			width: 1200,
+			height: 630,
+			fonts,
+		});
 
-    const png = await sharp(Buffer.from(svg)).png().toBuffer();
+		const png = await sharp(Buffer.from(svg)).png().toBuffer();
 
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="boba-drops-stats-${new Date().toISOString().slice(0, 10)}.png"`
-    );
-    res.setHeader("Cache-Control", "no-store");
-    res.send(png);
-  } catch (err) {
-    console.error("stats-image error", err);
-    res.status(500).json({ error: err.message });
-  }
+		res.setHeader("Content-Type", "image/png");
+		res.setHeader(
+			"Content-Disposition",
+			`attachment; filename="boba-drops-stats-${new Date().toISOString().slice(0, 10)}.png"`,
+		);
+		res.setHeader("Cache-Control", "no-store");
+		res.send(png);
+	} catch (err) {
+		console.error("stats-image error", err);
+		res.status(500).json({ error: err.message });
+	}
 }
