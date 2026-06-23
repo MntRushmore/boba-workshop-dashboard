@@ -230,7 +230,7 @@ export default async function handler(req, res) {
       organizerName,
       organizerEmail,
       amount,
-      reason,
+      additionalInfo,
     });
     return res.status(200).json({
       success: true,

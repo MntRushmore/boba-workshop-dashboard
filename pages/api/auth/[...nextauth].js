@@ -20,6 +20,7 @@ export const authOptions = {
           id: profile.sub,
           name: profile.name || profile.profile?.name,
           email: profile.email || profile.profile?.email,
+          slack_id: profile.slack_id || null,
         };
       },
       httpOptions: {
@@ -28,7 +29,10 @@ export const authOptions = {
     },
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
+      if (profile?.slack_id) {
+        token.SlackID = profile.slack_id;
+      }
       if (account?.access_token) {
         try {
           const res = await fetch("https://auth.hackclub.com/api/v1/me", {
@@ -42,7 +46,7 @@ export const authOptions = {
             console.error(
               "Failed to fetch /api/v1/me:",
               res.status,
-              res.statusText
+              res.statusText,
             );
             return token;
           }
@@ -53,9 +57,10 @@ export const authOptions = {
           token.id = identity.id || identity.sub || token.id;
           token.name = identity.first_name + " " + (identity.last_name || "");
           token.email = identity.email || token.email;
-          token.SlackID = identity.slack_id || null;
+          token.SlackID = identity.slack_id || token.SlackID || null;
         } catch (err) {
           console.error("Error calling /api/v1/me", err);
+          return token;
         }
       }
 

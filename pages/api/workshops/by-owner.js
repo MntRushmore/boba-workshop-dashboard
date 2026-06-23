@@ -10,32 +10,47 @@ export default async function handler(req, res) {
 
   const { email } = req.query;
   const key = process.env.AIRBRIDGE_API_KEY;
-  const airbridgeBase = process.env.DEV === "true" ? "http://localhost:5000" : "https://airbridge.hackclub.com";
+  const airbridgeBase =
+    process.env.DEV === "true"
+      ? "http://localhost:5000"
+      : "https://airbridge.hackclub.com";
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
   if (!email) return res.status(400).json({ error: "Missing email" });
 
   // Verify user can only access their own data (unless admin).
   // Workshops are matched by email: the logged-in Slack email must equal
   // the workshop's Email field.
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
+  const adminSlackIds =
+    process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
   const isAdmin = adminSlackIds.includes(session.user.SlackID);
 
   const requestedEmail = String(email).trim().toLowerCase();
-  const sessionEmail = String(session.user.email || "").trim().toLowerCase();
+  const sessionEmail = String(session.user.email || "")
+    .trim()
+    .toLowerCase();
 
   if (!isAdmin && sessionEmail !== requestedEmail) {
-    return res.status(403).json({ error: "Forbidden: Can only access your own data" });
+    return res
+      .status(403)
+      .json({ error: "Forbidden: Can only access your own data" });
   }
 
   // Sanitize email to prevent injection into the filter formula
   const sanitizedEmail = requestedEmail.replace(/'/g, "\\'");
 
   try {
+    const slackId = session.user.SlackID;
+    let filter;
+    if (slackId) {
+      filter = `OR(LOWER({Email}) = '${sanitizedEmail}', {Slack ID} = '${slackId.replace(/'/g, "\\'")}')`;
+    } else {
+      filter = `LOWER({Email}) = '${sanitizedEmail}'`;
+    }
     const select = encodeURIComponent(
       JSON.stringify({
-        fields: ["Club Names", "Status", "Organizer Name"],
-        filterByFormula: `LOWER({Email}) = '${sanitizedEmail}'`,
-      })
+        fields: ["Club Names", "Status", "Organizer Name", "Slack ID"],
+        filterByFormula: filter,
+      }),
     );
     const base = "Boba%20Club%20Dashboard";
     const url = `${airbridgeBase}/v0.2/${base}/Club%20Workshops?select=${select}&authKey=${key}`;
@@ -63,15 +78,11 @@ export default async function handler(req, res) {
     try {
       json = JSON.parse(text);
     } catch (e) {
-      return res
-        .status(502)
-        .json({ error: "Bad JSON from upstream" });
+      return res.status(502).json({ error: "Bad JSON from upstream" });
     }
 
     if (!resp.ok) {
-      return res
-        .status(resp.status)
-        .json({ error: "Upstream error" });
+      return res.status(resp.status).json({ error: "Upstream error" });
     }
 
     const records = Array.isArray(json)
@@ -83,7 +94,10 @@ export default async function handler(req, res) {
       return {
         id: r.id || fields.id || null,
         clubName: fields["Club Names"]?.[0] || "",
-        status: fields.Status || fields.status || "Pending",
+        status: fields.Status || fields.status || "Active",
+        slackId: fields["Slack ID"] || "",
+        email: fields.Email || "",
+        organizerName: fields["Organizer Name"] || "",
       };
     });
 

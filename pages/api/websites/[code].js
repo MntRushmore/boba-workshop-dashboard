@@ -73,10 +73,21 @@ export default async function handler(req, res) {
       process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
     const isAdmin = adminSlackIds.includes(session.user.SlackID);
     const eventSlackId = eventRecords[0]?.fields?.["Slack ID"];
-    if (!isAdmin && session.user.SlackID !== eventSlackId) {
-      return res
-        .status(403)
-        .json({ error: "Forbidden: Not the organizer for this club" });
+    if (!isAdmin) {
+      const userSlackId = session.user.SlackID;
+      const userEmail = String(session.user.email || "")
+        .trim()
+        .toLowerCase();
+      const eventEmail = String(eventRecords[0]?.fields.Email || "")
+        .trim()
+        .toLowerCase();
+      const isOrganizer = userSlackId && userSlackId === eventSlackId;
+      const isEmailMatch = userEmail && userEmail === eventEmail;
+      if (!isOrganizer && !isEmailMatch) {
+        return res
+          .status(403)
+          .json({ error: "Forbidden: Not the organizer for this club" });
+      }
     }
 
     const select = encodeURIComponent(

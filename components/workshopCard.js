@@ -7,6 +7,9 @@ export default function WorkshopCard(props) {
 
   const statusColors = {
     Active: "#33D6A6",
+    Approved: "#42d225",
+    Pending: "#F7B801",
+    Rejected: "#EC3750",
     Deactivated: "rgba(255,255,255,0.1)",
   };
 

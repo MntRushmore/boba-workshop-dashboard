@@ -15,7 +15,7 @@ function App({ Component, pageProps: { session, ...pageProps } }) {
           sizes="32x32"
         />
       </Head>
-      <SessionProvider session={session}>
+      <SessionProvider session={session} refetchInterval={300}>
         <ThemeProvider theme={theme}>
           <Component {...pageProps} />
         </ThemeProvider>
