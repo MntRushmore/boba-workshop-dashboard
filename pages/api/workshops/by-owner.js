@@ -11,12 +11,11 @@ export default async function handler(req, res) {
   const { email } = req.query;
   const key = process.env.AIRBRIDGE_API_KEY;
   const airbridgeBase = process.env.DEV === "true" ? "http://localhost:5000" : "https://airbridge.hackclub.com";
+
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
   if (!email) return res.status(400).json({ error: "Missing email" });
 
   // Verify user can only access their own data (unless admin).
-  // Workshops are matched by email: the logged-in Slack email must equal
-  // the workshop's Email field.
   const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
   const isAdmin = adminSlackIds.includes(session.user.SlackID);
 
@@ -37,10 +36,13 @@ export default async function handler(req, res) {
         filterByFormula: `LOWER({Email}) = '${sanitizedEmail}'`,
       })
     );
+
     const base = "Boba%20Club%20Dashboard";
     const url = `${airbridgeBase}/v0.2/${base}/Club%20Workshops?select=${select}&authKey=${key}`;
+    
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
+
     let resp;
     try {
       resp = await fetch(url, {
