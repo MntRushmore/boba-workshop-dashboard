@@ -50,6 +50,7 @@ export default function Login() {
               width: "fit-content",
               textAlign: "center",
               background: "highlight",
+              cursor: "pointer",
             }}
           >
             Click to Sign In

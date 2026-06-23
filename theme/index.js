@@ -58,6 +58,7 @@ const theme = {
       px: 4,
       py: 2,
       fontWeight: 600,
+      cursor: "pointer",
       transition: "transform 150ms ease, box-shadow 150ms ease",
       boxShadow: "0 12px 30px rgba(236, 55, 80, 0.35)",
       ":hover": {

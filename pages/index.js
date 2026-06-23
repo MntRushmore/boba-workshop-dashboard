@@ -44,6 +44,13 @@ export default function Home() {
     }
 
     const fetchEvents = async () => {
+      if (!session?.user?.email) {
+        setError(
+          "No email found in your session. Please sign out and sign in again.",
+        );
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError("");
       try {
