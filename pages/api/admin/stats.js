@@ -1,7 +1,38 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
-const PAGE_TIMEOUT_MS = 30000;
+const PAGE_TIMEOUT_MS = 20000;
+const CACHE_MAX_AGE_S = 300; // 5 minutes
+
+async function fetchJson(url, timeoutMs = PAGE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError")
+      throw new Error("Request timed out fetching page");
+    throw err;
+  }
+  clearTimeout(timer);
+
+  const text = await resp.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("Bad JSON from upstream");
+  }
+
+  if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
+
+  return json;
+}
 
 async function fetchAllPages(baseUrl) {
   const records = [];
@@ -12,40 +43,24 @@ async function fetchAllPages(baseUrl) {
       ? `${baseUrl}&offset=${encodeURIComponent(offset)}`
       : baseUrl;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS);
-    let resp;
-    try {
-      resp = await fetch(url, {
-        signal: controller.signal,
-        headers: { Accept: "application/json" },
-      });
-    } catch (err) {
-      clearTimeout(timer);
-      if (err.name === "AbortError")
-        throw new Error("Request timed out fetching page");
-      throw err;
-    }
-    clearTimeout(timer);
-
-    const text = await resp.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      throw new Error("Bad JSON from upstream");
-    }
-
-    if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
-
+    const json = await fetchJson(url);
     const page = Array.isArray(json) ? json : json?.records || json?.data || [];
     records.push(...page);
-
-    // Airtable-style pagination
     offset = json?.offset || null;
   } while (offset);
 
   return records;
+}
+
+function firstArrayValue(val) {
+  if (val == null) return null;
+  return Array.isArray(val) ? val[0] : val;
+}
+
+function toNumber(val) {
+  if (val == null) return 0;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export default async function handler(req, res) {
@@ -64,16 +79,19 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 
   try {
-    const websiteSelect = encodeURIComponent(
+    // Use pre-aggregated counts from Club Workshops instead of scanning Websites
+    const clubSelect = encodeURIComponent(
       JSON.stringify({
-        fields: ["Project Status", "club_name (from Active Clubs) (from Club)"],
+        fields: ["Club Names", "Count of Submitted", "Count of approved"],
         pageSize: 100,
       }),
     );
-    const websiteUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${websiteSelect}&authKey=${key}`;
+    const clubUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${clubSelect}&authKey=${key}`;
 
-    const records = await fetchAllPages(websiteUrl);
-    console.log(`[admin/stats] fetched ${records.length} website records`);
+    const records = await fetchAllPages(clubUrl);
+    console.log(
+      `[admin/stats] fetched ${records.length} club workshop records`,
+    );
 
     let totalSubmissions = 0;
     let approvedSubmissions = 0;
@@ -81,15 +99,19 @@ export default async function handler(req, res) {
 
     for (const r of records) {
       const fields = r.fields || r;
-      const status = fields["Project Status"] || "";
-      const clubArr = fields["club_name (from Active Clubs) (from Club)"];
-      const clubName = Array.isArray(clubArr) ? clubArr[0] : clubArr || "";
+      const submitted = toNumber(fields["Count of Submitted"]);
+      const approved = toNumber(fields["Count of approved"]);
+      const clubName = firstArrayValue(fields["Club Names"]) || "";
 
-      totalSubmissions++;
-      if (status === "Approve") approvedSubmissions++;
+      totalSubmissions += submitted;
+      approvedSubmissions += approved;
       if (clubName) clubsWithSubmissions.add(clubName);
     }
 
+    res.setHeader(
+      "Cache-Control",
+      `s-maxage=${CACHE_MAX_AGE_S}, stale-while-revalidate=${CACHE_MAX_AGE_S * 2}`,
+    );
     return res.status(200).json({
       totalSubmissions,
       approvedSubmissions,

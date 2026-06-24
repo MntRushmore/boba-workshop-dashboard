@@ -1,7 +1,38 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
-const PAGE_TIMEOUT_MS = 30000;
+const PAGE_TIMEOUT_MS = 20000;
+const CACHE_MAX_AGE_S = 300; // 5 minutes
+
+async function fetchJson(url, timeoutMs = PAGE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError")
+      throw new Error("Request timed out fetching page");
+    throw err;
+  }
+  clearTimeout(timer);
+
+  const text = await resp.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("Bad JSON from upstream");
+  }
+
+  if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
+
+  return json;
+}
 
 async function fetchAllPages(baseUrl) {
   const records = [];
@@ -12,39 +43,34 @@ async function fetchAllPages(baseUrl) {
       ? `${baseUrl}&offset=${encodeURIComponent(offset)}`
       : baseUrl;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS);
-    let resp;
-    try {
-      resp = await fetch(url, {
-        signal: controller.signal,
-        headers: { Accept: "application/json" },
-      });
-    } catch (err) {
-      clearTimeout(timer);
-      if (err.name === "AbortError")
-        throw new Error("Request timed out fetching page");
-      throw err;
-    }
-    clearTimeout(timer);
-
-    const text = await resp.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      throw new Error("Bad JSON from upstream");
-    }
-
-    if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
-
+    const json = await fetchJson(url);
     const page = Array.isArray(json) ? json : json?.records || json?.data || [];
     records.push(...page);
-
     offset = json?.offset || null;
   } while (offset);
 
   return records;
+}
+
+function firstArrayValue(val) {
+  if (val == null) return null;
+  return Array.isArray(val) ? val[0] : val;
+}
+
+function toNumber(val) {
+  if (val == null) return 0;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getWeek(date) {
+  const tmp = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  return Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
 }
 
 export default async function handler(req, res) {
@@ -62,32 +88,45 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 
   try {
-    // 1. Find clubs owned by this user
+    // 1. Fetch this user's Club Workshops (pre-aggregated counts)
     const clubSelect = encodeURIComponent(
       JSON.stringify({
         filterByFormula: `{Slack ID} = '${userSlackId}'`,
-        fields: ["Club Names", "Status"],
+        fields: [
+          "Club Names",
+          "Status",
+          "Count of Submitted",
+          "Count of approved",
+        ],
+        pageSize: 100,
       }),
     );
     const clubUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${clubSelect}&authKey=${key}`;
     const clubRecords = await fetchAllPages(clubUrl);
 
-    const userClubs = new Map();
+    const userClubs = [];
+    let userTotal = 0;
+    let userApproved = 0;
+
     for (const r of clubRecords) {
       const fields = r.fields || r;
-      const names = fields["Club Names"];
+      const name = firstArrayValue(fields["Club Names"]) || "Unknown";
       const status = fields.Status || "Active";
-      if (Array.isArray(names)) {
-        for (const name of names) {
-          userClubs.set(name, { name, status });
-        }
-      } else if (names) {
-        userClubs.set(names, { name: names, status });
-      }
+      const submitted = toNumber(fields["Count of Submitted"]);
+      const approved = toNumber(fields["Count of approved"]);
+
+      userClubs.push({ name, status });
+      userTotal += submitted;
+      userApproved += approved;
     }
 
-    const clubNames = Array.from(userClubs.keys());
-    if (clubNames.length === 0) {
+    const userPending = Math.max(0, userTotal - userApproved);
+    const userRejected = 0; // not tracked in Club Workshops
+    const userApprovalRate = userTotal
+      ? Math.round((userApproved / userTotal) * 100)
+      : 0;
+
+    if (userClubs.length === 0) {
       return res.status(200).json({
         clubs: [],
         submissions: [],
@@ -104,70 +143,100 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Fetch all website submissions for these clubs
+    const clubNames = userClubs.map((c) => c.name);
+
+    // 2. Global comparison from all Club Workshops (lightweight)
+    const globalSelect = encodeURIComponent(
+      JSON.stringify({
+        fields: ["Count of Submitted", "Count of approved"],
+        pageSize: 100,
+      }),
+    );
+    const globalUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${globalSelect}&authKey=${key}`;
+    const globalRecords = await fetchAllPages(globalUrl);
+
+    let globalTotal = 0;
+    let globalApproved = 0;
+    for (const r of globalRecords) {
+      const fields = r.fields || r;
+      globalTotal += toNumber(fields["Count of Submitted"]);
+      globalApproved += toNumber(fields["Count of approved"]);
+    }
+    const globalApprovalRate = globalTotal
+      ? Math.round((globalApproved / globalTotal) * 100)
+      : 0;
+
+    // 3. Optional timeline/rejection reasons from Websites (capped)
+    const weeklyMap = new Map();
+    const rejectionReasons = new Map();
+    const submissions = [];
+
     const formulaParts = clubNames.map(
       (name) =>
         `{club_name (from Active Clubs) (from Club)} = '${String(name).replace(/'/g, "\\'")}'`,
     );
-    const websiteFilter = encodeURIComponent(
-      JSON.stringify({
-        filterByFormula: `OR(${formulaParts.join(",")})`,
-        fields: [
-          "Project Status",
-          "club_name (from Active Clubs) (from Club)",
-          "Rejection Reason",
-        ],
-        pageSize: 100,
-      }),
-    );
-    const websiteUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${websiteFilter}&authKey=${key}`;
-    const websiteRecords = await fetchAllPages(websiteUrl);
 
-    const submissions = [];
-    const rejectionReasons = new Map();
-    const weeklyMap = new Map();
-    let approved = 0;
-    let rejected = 0;
-    let pending = 0;
+    if (formulaParts.length > 0) {
+      const websiteFilter = encodeURIComponent(
+        JSON.stringify({
+          filterByFormula: `OR(${formulaParts.join(",")})`,
+          fields: [
+            "Project Status",
+            "club_name (from Active Clubs) (from Club)",
+            "Rejection Reason",
+          ],
+          pageSize: 500,
+          maxRecords: 500,
+        }),
+      );
+      const websiteUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${websiteFilter}&authKey=${key}`;
+      try {
+        const websiteRecords = await fetchJson(websiteUrl);
+        const page = Array.isArray(websiteRecords)
+          ? websiteRecords
+          : websiteRecords?.records || websiteRecords?.data || [];
 
-    for (const r of websiteRecords) {
-      const fields = r.fields || r;
-      const status = fields["Project Status"] || "Pending";
-      const clubArr = fields["club_name (from Active Clubs) (from Club)"];
-      const clubName = Array.isArray(clubArr)
-        ? clubArr[0]
-        : clubArr || "Unknown";
-      const reason = fields["Rejection Reason"] || "";
-      const createdTime = r.createdTime || fields.createdTime || null;
+        for (const r of page) {
+          const fields = r.fields || r;
+          const status = fields["Project Status"] || "Pending";
+          const clubArr = fields["club_name (from Active Clubs) (from Club)"];
+          const clubName = Array.isArray(clubArr)
+            ? clubArr[0]
+            : clubArr || "Unknown";
+          const reason = fields["Rejection Reason"] || "";
+          const createdTime = r.createdTime || fields.createdTime || null;
 
-      if (status === "Approve") approved++;
-      else if (status === "Reject") rejected++;
-      else pending++;
+          if (reason) {
+            rejectionReasons.set(
+              reason,
+              (rejectionReasons.get(reason) || 0) + 1,
+            );
+          }
 
-      if (reason) {
-        rejectionReasons.set(reason, (rejectionReasons.get(reason) || 0) + 1);
+          if (createdTime) {
+            const d = new Date(createdTime);
+            if (!Number.isNaN(d.getTime())) {
+              const year = d.getUTCFullYear();
+              const week = getWeek(d);
+              const key = `${year}-W${String(week).padStart(2, "0")}`;
+              if (!weeklyMap.has(key))
+                weeklyMap.set(key, { period: key, count: 0 });
+              weeklyMap.get(key).count++;
+            }
+          }
+
+          submissions.push({
+            id: r.id || null,
+            club: clubName,
+            status,
+            rejectionReason: reason,
+            createdTime,
+          });
+        }
+      } catch (err) {
+        console.warn("Personal stats website fetch failed", err.message);
       }
-
-      if (createdTime) {
-        const d = new Date(createdTime);
-        const year = d.getUTCFullYear();
-        const week = getWeek(d);
-        const key = `${year}-W${String(week).padStart(2, "0")}`;
-        if (!weeklyMap.has(key)) weeklyMap.set(key, { period: key, count: 0 });
-        weeklyMap.get(key).count++;
-      }
-
-      submissions.push({
-        id: r.id || null,
-        club: clubName,
-        status,
-        rejectionReason: reason,
-        createdTime,
-      });
     }
-
-    const total = submissions.length;
-    const approvalRate = total ? Math.round((approved / total) * 100) : 0;
 
     const weeklyTimeline = Array.from(weeklyMap.values()).sort((a, b) =>
       a.period.localeCompare(b.period),
@@ -177,48 +246,33 @@ export default async function handler(req, res) {
       .map(([reason, count]) => ({ reason, count }))
       .sort((a, b) => b.count - a.count);
 
-    // 3. Simple global comparison: fetch total submissions count
-    const globalSelect = encodeURIComponent(
-      JSON.stringify({
-        fields: ["Project Status"],
-        pageSize: 100,
-      }),
+    res.setHeader(
+      "Cache-Control",
+      `s-maxage=${CACHE_MAX_AGE_S}, stale-while-revalidate=${CACHE_MAX_AGE_S * 2}`,
     );
-    const globalUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${globalSelect}&authKey=${key}`;
-    const globalRecords = await fetchAllPages(globalUrl);
-    const globalTotal = globalRecords.length;
-    const globalApproved = globalRecords.filter(
-      (r) => (r.fields || r)["Project Status"] === "Approve",
-    ).length;
-    const globalApprovalRate = globalTotal
-      ? Math.round((globalApproved / globalTotal) * 100)
-      : 0;
-
     return res.status(200).json({
-      clubs: Array.from(userClubs.values()),
+      clubs: userClubs,
       submissions,
-      summary: { total, approved, rejected, pending, approvalRate },
+      summary: {
+        total: userTotal,
+        approved: userApproved,
+        rejected: userRejected,
+        pending: userPending,
+        approvalRate: userApprovalRate,
+      },
       weeklyTimeline,
       rejectionReasons: rejectionReasonList,
       globalComparison: {
         total: globalTotal,
         approved: globalApproved,
         approvalRate: globalApprovalRate,
-        userShare: globalTotal ? Math.round((total / globalTotal) * 100) : 0,
+        userShare: globalTotal
+          ? Math.round((userTotal / globalTotal) * 100)
+          : 0,
       },
     });
   } catch (err) {
     console.error("Personal stats error", err);
     return res.status(500).json({ error: err.message || "Unknown error" });
   }
-}
-
-function getWeek(date) {
-  const tmp = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = tmp.getUTCDay() || 7;
-  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-  return Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
 }

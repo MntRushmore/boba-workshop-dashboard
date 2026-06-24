@@ -30,7 +30,17 @@ export default function LeaderboardPage() {
     if (status === "authenticated") {
       fetch("/api/leaderboard")
         .then(async (res) => {
-          if (!res.ok) throw new Error((await res.json()).error || "Failed");
+          let message = "Failed to load leaderboard";
+          if (!res.ok) {
+            const text = await res.text();
+            try {
+              const parsed = JSON.parse(text);
+              message = parsed.error || `HTTP ${res.status}`;
+            } catch {
+              message = text?.slice(0, 200) || `HTTP ${res.status}`;
+            }
+            throw new Error(message);
+          }
           return res.json();
         })
         .then(setData)

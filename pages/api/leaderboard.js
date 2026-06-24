@@ -1,7 +1,38 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 
-const PAGE_TIMEOUT_MS = 30000;
+const PAGE_TIMEOUT_MS = 20000;
+const CACHE_MAX_AGE_S = 300; // 5 minutes
+
+async function fetchJson(url, timeoutMs = PAGE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError")
+      throw new Error("Request timed out fetching page");
+    throw err;
+  }
+  clearTimeout(timer);
+
+  const text = await resp.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("Bad JSON from upstream");
+  }
+
+  if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
+
+  return json;
+}
 
 async function fetchAllPages(baseUrl) {
   const records = [];
@@ -12,39 +43,40 @@ async function fetchAllPages(baseUrl) {
       ? `${baseUrl}&offset=${encodeURIComponent(offset)}`
       : baseUrl;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS);
-    let resp;
-    try {
-      resp = await fetch(url, {
-        signal: controller.signal,
-        headers: { Accept: "application/json" },
-      });
-    } catch (err) {
-      clearTimeout(timer);
-      if (err.name === "AbortError")
-        throw new Error("Request timed out fetching page");
-      throw err;
-    }
-    clearTimeout(timer);
-
-    const text = await resp.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      throw new Error("Bad JSON from upstream");
-    }
-
-    if (!resp.ok) throw new Error(`Upstream error: ${resp.status}`);
-
+    const json = await fetchJson(url);
     const page = Array.isArray(json) ? json : json?.records || json?.data || [];
     records.push(...page);
-
     offset = json?.offset || null;
   } while (offset);
 
   return records;
+}
+
+function firstArrayValue(val) {
+  if (val == null) return null;
+  return Array.isArray(val) ? val[0] : val;
+}
+
+function getClubName(fields) {
+  const candidates = [
+    fields["Club Names"],
+    fields["club_name (from Active Clubs) (from Club)"],
+    fields["club_name (from Club)"],
+    fields.Club,
+    fields.club_name,
+    fields["School Name"],
+  ];
+  for (const c of candidates) {
+    const val = firstArrayValue(c);
+    if (val && String(val).trim()) return String(val).trim();
+  }
+  return "Unknown";
+}
+
+function toNumber(val) {
+  if (val == null) return 0;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export default async function handler(req, res) {
@@ -57,31 +89,22 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 
   try {
-    const select = encodeURIComponent(
+    // 1. Fast club stats from Club Workshops (pre-aggregated counts)
+    const clubSelect = encodeURIComponent(
       JSON.stringify({
-        fields: [
-          "Project Status",
-          "club_name (from Active Clubs) (from Club)",
-          "Slack ID",
-        ],
+        fields: ["Club Names", "Count of Submitted", "Count of approved"],
         pageSize: 100,
       }),
     );
-    const url = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${select}&authKey=${key}`;
-
-    const records = await fetchAllPages(url);
+    const clubUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${clubSelect}&authKey=${key}`;
+    const clubRecords = await fetchAllPages(clubUrl);
 
     const clubMap = new Map();
-    const timeline = [];
-
-    for (const r of records) {
+    for (const r of clubRecords) {
       const fields = r.fields || r;
-      const status = fields["Project Status"] || "Pending";
-      const clubArr = fields["club_name (from Active Clubs) (from Club)"];
-      const clubName = Array.isArray(clubArr)
-        ? clubArr[0]
-        : clubArr || "Unknown";
-      const createdTime = r.createdTime || fields.createdTime || null;
+      const clubName = getClubName(fields);
+      const submitted = toNumber(fields["Count of Submitted"]);
+      const approved = toNumber(fields["Count of approved"]);
 
       if (!clubMap.has(clubName)) {
         clubMap.set(clubName, {
@@ -94,21 +117,40 @@ export default async function handler(req, res) {
         });
       }
       const club = clubMap.get(clubName);
-      club.total++;
-      if (status === "Approve") club.approved++;
-      else if (status === "Reject") club.rejected++;
-      else club.pending++;
+      club.total += submitted;
+      club.approved += approved;
+      club.pending += Math.max(0, submitted - approved);
+    }
 
+    // 2. Timeline from Websites (lightweight, capped to avoid timeouts)
+    const websiteSelect = encodeURIComponent(
+      JSON.stringify({
+        fields: ["Project Status", "Status"],
+        pageSize: 500,
+        maxRecords: 500,
+      }),
+    );
+    const websiteUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${websiteSelect}&authKey=${key}`;
+    let websiteRecords = [];
+    try {
+      websiteRecords = await fetchJson(websiteUrl);
+      websiteRecords = Array.isArray(websiteRecords)
+        ? websiteRecords
+        : websiteRecords?.records || websiteRecords?.data || [];
+    } catch (err) {
+      console.warn("Leaderboard timeline fetch failed", err.message);
+      // Timeline is optional; don't fail the whole request
+    }
+
+    const timeline = [];
+    for (const r of websiteRecords) {
+      const createdTime = r.createdTime || r.fields?.createdTime || null;
       if (createdTime) {
-        timeline.push({
-          club: clubName,
-          status,
-          date: createdTime,
-        });
+        timeline.push({ date: createdTime });
       }
     }
 
-    // Badges
+    // Badges & approval rate
     for (const club of clubMap.values()) {
       const badges = [];
       if (club.approved >= 5) badges.push({ name: "Boba Starter", icon: "🧋" });
@@ -125,10 +167,11 @@ export default async function handler(req, res) {
       (a, b) => b.approved - a.approved || b.total - a.total,
     );
 
-    // Timeline aggregation by week
+    // Weekly timeline aggregation
     const weeklyMap = new Map();
     for (const t of timeline) {
       const d = new Date(t.date);
+      if (Number.isNaN(d.getTime())) continue;
       const year = d.getUTCFullYear();
       const week = getWeek(d);
       const key = `${year}-W${String(week).padStart(2, "0")}`;
@@ -139,10 +182,16 @@ export default async function handler(req, res) {
       a.period.localeCompare(b.period),
     );
 
+    const totalSubmissions = clubs.reduce((sum, c) => sum + c.total, 0);
+
+    res.setHeader(
+      "Cache-Control",
+      `s-maxage=${CACHE_MAX_AGE_S}, stale-while-revalidate=${CACHE_MAX_AGE_S * 2}`,
+    );
     return res.status(200).json({
       clubs,
       weeklyTimeline,
-      totalSubmissions: records.length,
+      totalSubmissions,
       totalClubs: clubs.length,
     });
   } catch (err) {
