@@ -13,7 +13,7 @@ const theme = {
     primary: "#EC3750",
     secondary: "#33D6A6",
     accent: "#5BC0EB",
-    muted: "#111527",
+    muted: "#A9B4C2",
     elevated: "#0A0F1C",
     border: "rgba(248, 251, 255, 0.12)",
     highlight: "#FFC857",

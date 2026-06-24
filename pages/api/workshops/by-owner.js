@@ -11,9 +11,10 @@ export default async function handler(req, res) {
   const { email } = req.query;
   const key = process.env.AIRBRIDGE_API_KEY;
   const airbridgeBase =
-    process.env.DEV === "true"
+    process.env.AIRBRIDGE_BASE_URL ||
+    (process.env.DEV === "true"
       ? "http://localhost:5000"
-      : "https://airbridge.hackclub.com";
+      : "https://airbridge.hackclub.com");
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
   if (!email) return res.status(400).json({ error: "Missing email" });
 

@@ -11,6 +11,12 @@ body {
   color: #f8fbff;
 }
 
+/* Ensure native select dropdown options are readable on dark themes */
+select option {
+  background-color: #0a0f1c;
+  color: #f8fbff;
+}
+
 #__next {
   min-height: 100vh;
 }

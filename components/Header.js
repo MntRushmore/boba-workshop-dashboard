@@ -1,5 +1,6 @@
 import { Box, Button, Card, Flex, Heading, Text } from "theme-ui";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
 
 export default function Header({ session, showProfile, setShowProfile }) {
   if (!session) return null;
@@ -115,17 +116,66 @@ export default function Header({ session, showProfile, setShowProfile }) {
                   borderColor: "primary",
                 }}
               >
-                <Box sx={{ mb: 3, pb: 3, borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
-                  <Heading as="h3" sx={{ fontSize: 3, mb: 2, color: "primary" }}>
+                <Box
+                  sx={{
+                    mb: 3,
+                    pb: 3,
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <Heading
+                    as="h3"
+                    sx={{ fontSize: 3, mb: 2, color: "primary" }}
+                  >
                     {session.user?.name || "Profile"}
                   </Heading>
                   {session.user?.email && (
-                    <Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.6)" }}>
+                    <Text
+                      sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.6)" }}
+                    >
                       {session.user.email}
                     </Text>
                   )}
                 </Box>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <Link href="/leaderboard" passHref legacyBehavior>
+                    <Button
+                      as="a"
+                      variant="secondary"
+                      onClick={() => setShowProfile(false)}
+                      sx={{
+                        width: "100%",
+                        bg: "rgba(255, 255, 255, 0.05)",
+                        color: "text",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        textDecoration: "none",
+                        "&:hover": {
+                          bg: "rgba(255, 255, 255, 0.08)",
+                        },
+                      }}
+                    >
+                      🏆 Leaderboard
+                    </Button>
+                  </Link>
+                  <Link href="/stats" passHref legacyBehavior>
+                    <Button
+                      as="a"
+                      variant="secondary"
+                      onClick={() => setShowProfile(false)}
+                      sx={{
+                        width: "100%",
+                        bg: "rgba(255, 255, 255, 0.05)",
+                        color: "text",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        textDecoration: "none",
+                        "&:hover": {
+                          bg: "rgba(255, 255, 255, 0.08)",
+                        },
+                      }}
+                    >
+                      📊 My Stats
+                    </Button>
+                  </Link>
                   <Button
                     variant="secondary"
                     onClick={() => setShowProfile(false)}

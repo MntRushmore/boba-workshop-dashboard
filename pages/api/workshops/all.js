@@ -9,7 +9,8 @@ export default async function handler(req, res) {
   }
 
   // Check if user is admin
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(',') || [];
+  const adminSlackIds =
+    process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
   const isAdmin = adminSlackIds.includes(session.user.SlackID);
 
   if (!isAdmin) {
@@ -17,14 +18,18 @@ export default async function handler(req, res) {
   }
 
   const key = process.env.AIRBRIDGE_API_KEY;
-  const airbridgeBase = process.env.DEV === "true" ? "http://localhost:5000" : "https://airbridge.hackclub.com";
+  const airbridgeBase =
+    process.env.AIRBRIDGE_BASE_URL ||
+    (process.env.DEV === "true"
+      ? "http://localhost:5000"
+      : "https://airbridge.hackclub.com");
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 
   try {
     const select = encodeURIComponent(
       JSON.stringify({
         fields: ["Club Names", "Status", "Organizer Name", "Slack ID"],
-      })
+      }),
     );
     const url = `${airbridgeBase}/v0.2/Boba%20Club%20Dashboard/Club%20Workshops?select=${select}&authKey=${key}`;
     const controller = new AbortController();
@@ -51,15 +56,11 @@ export default async function handler(req, res) {
     try {
       json = JSON.parse(text);
     } catch (e) {
-      return res
-        .status(502)
-        .json({ error: "Bad JSON from upstream" });
+      return res.status(502).json({ error: "Bad JSON from upstream" });
     }
 
     if (!resp.ok) {
-      return res
-        .status(resp.status)
-        .json({ error: "Upstream error" });
+      return res.status(resp.status).json({ error: "Upstream error" });
     }
 
     const records = Array.isArray(json)

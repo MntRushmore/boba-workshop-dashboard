@@ -8,7 +8,9 @@ async function fetchAllPages(baseUrl) {
   let offset = null;
 
   do {
-    const url = offset ? `${baseUrl}&offset=${encodeURIComponent(offset)}` : baseUrl;
+    const url = offset
+      ? `${baseUrl}&offset=${encodeURIComponent(offset)}`
+      : baseUrl;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS);
@@ -20,7 +22,8 @@ async function fetchAllPages(baseUrl) {
       });
     } catch (err) {
       clearTimeout(timer);
-      if (err.name === "AbortError") throw new Error("Request timed out fetching page");
+      if (err.name === "AbortError")
+        throw new Error("Request timed out fetching page");
       throw err;
     }
     clearTimeout(timer);
@@ -49,24 +52,26 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session) return res.status(401).json({ error: "Unauthorized" });
 
-  const adminSlackIds = process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
+  const adminSlackIds =
+    process.env.NEXT_PUBLIC_ADMIN_SLACK_IDS?.split(",") || [];
   if (!adminSlackIds.includes(session.user.SlackID)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
   const key = process.env.AIRBRIDGE_API_KEY;
-  const base = process.env.DEV === "true" ? "http://localhost:5000" : "https://airbridge.hackclub.com";
+  const base =
+    process.env.AIRBRIDGE_BASE_URL ||
+    (process.env.DEV === "true"
+      ? "http://localhost:5000"
+      : "https://airbridge.hackclub.com");
   if (!key) return res.status(500).json({ error: "Missing AIRBRIDGE_API_KEY" });
 
   try {
     const websiteSelect = encodeURIComponent(
       JSON.stringify({
-        fields: [
-          "Project Status",
-          "club_name (from Active Clubs) (from Club)",
-        ],
+        fields: ["Project Status", "club_name (from Active Clubs) (from Club)"],
         pageSize: 100,
-      })
+      }),
     );
     const websiteUrl = `${base}/v0.2/Boba%20Club%20Dashboard/Websites?select=${websiteSelect}&authKey=${key}`;
 

@@ -580,7 +580,7 @@ export default function Home() {
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     sx={{
-                      bg: "transparent",
+                      bg: "elevated",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: 4,
                       px: 3,
@@ -603,7 +603,7 @@ export default function Home() {
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                     sx={{
-                      bg: "transparent",
+                      bg: "elevated",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: 4,
                       px: 3,
