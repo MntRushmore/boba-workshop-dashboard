@@ -62,3 +62,165 @@ img {
   color: rgba(248, 251, 255, 0.7);
   text-align: left;
 }
+
+/* Boba animated background */
+.boba-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.boba-pearl {
+  position: absolute;
+  bottom: -40px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(0, 0, 0, 0.25) 60%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  opacity: 0.55;
+  animation: boba-rise linear infinite;
+}
+
+.boba-pearl:nth-child(1) {
+  left: 5%;
+  width: 18px;
+  height: 18px;
+  background-color: #5a3d2b;
+  animation-duration: 18s;
+  animation-delay: 0s;
+}
+.boba-pearl:nth-child(2) {
+  left: 15%;
+  width: 26px;
+  height: 26px;
+  background-color: #4a2e1f;
+  animation-duration: 24s;
+  animation-delay: 2s;
+}
+.boba-pearl:nth-child(3) {
+  left: 25%;
+  width: 16px;
+  height: 16px;
+  background-color: #6b4631;
+  animation-duration: 20s;
+  animation-delay: 5s;
+}
+.boba-pearl:nth-child(4) {
+  left: 35%;
+  width: 22px;
+  height: 22px;
+  background-color: #5a3d2b;
+  animation-duration: 22s;
+  animation-delay: 1s;
+}
+.boba-pearl:nth-child(5) {
+  left: 45%;
+  width: 20px;
+  height: 20px;
+  background-color: #4a2e1f;
+  animation-duration: 19s;
+  animation-delay: 7s;
+}
+.boba-pearl:nth-child(6) {
+  left: 55%;
+  width: 28px;
+  height: 28px;
+  background-color: #6b4631;
+  animation-duration: 25s;
+  animation-delay: 3s;
+}
+.boba-pearl:nth-child(7) {
+  left: 65%;
+  width: 18px;
+  height: 18px;
+  background-color: #5a3d2b;
+  animation-duration: 21s;
+  animation-delay: 6s;
+}
+.boba-pearl:nth-child(8) {
+  left: 75%;
+  width: 24px;
+  height: 24px;
+  background-color: #4a2e1f;
+  animation-duration: 23s;
+  animation-delay: 4s;
+}
+.boba-pearl:nth-child(9) {
+  left: 85%;
+  width: 16px;
+  height: 16px;
+  background-color: #6b4631;
+  animation-duration: 17s;
+  animation-delay: 8s;
+}
+.boba-pearl:nth-child(10) {
+  left: 95%;
+  width: 22px;
+  height: 22px;
+  background-color: #5a3d2b;
+  animation-duration: 26s;
+  animation-delay: 2.5s;
+}
+
+@keyframes boba-rise {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  25% {
+    transform: translateY(-25vh) translateX(15px) rotate(90deg);
+  }
+  50% {
+    transform: translateY(-50vh) translateX(-10px) rotate(180deg);
+  }
+  75% {
+    transform: translateY(-75vh) translateX(12px) rotate(270deg);
+  }
+  90% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(-110vh) translateX(-5px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Boba cup liquid animation */
+@keyframes liquid-wave {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  50% {
+    transform: translateX(-50%) rotate(3deg);
+  }
+}
+
+@keyframes pearl-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes fill-rise {
+  0% {
+    height: 0%;
+  }
+  100% {
+    height: var(--fill-height, 40%);
+  }
+}

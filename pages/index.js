@@ -8,6 +8,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { SkeletonCard } from "../components/Skeleton";
 import ClaimWorkshopModal from "../components/ClaimWorkshopModal";
+import BobaBackground from "../components/BobaBackground";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -118,8 +119,10 @@ export default function Home() {
       sx={{
         px: [3, 4],
         py: 4,
+        position: "relative",
       }}
     >
+      <BobaBackground />
       <Header
         session={session}
         showProfile={showProfile}
@@ -642,6 +645,7 @@ export default function Home() {
                     EventStatus={ev.status || "Pending"}
                     OrganizerName={ev.organizerName}
                     showOrganizer={isAdmin}
+                    approvedCount={ev.approvedCount || 0}
                   />
                 ))}
               </Grid>
