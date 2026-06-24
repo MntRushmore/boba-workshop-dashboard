@@ -4,7 +4,7 @@ export function SkeletonCard() {
 	return (
 		<Box
 			sx={{
-				minHeight: [200, 220],
+				minHeight: [100, 160],
 				width: "100%",
 				maxWidth: "100%",
 				borderRadius: 12,
@@ -38,18 +38,9 @@ export function SkeletonCard() {
 			<Box
 				sx={{
 					width: [100, 120],
-					height: [20, 22],
+					height: [20, 32],
 					bg: "rgba(255, 255, 255, 0.1)",
 					borderRadius: 4,
-					zIndex: 1,
-				}}
-			/>
-			<Box
-				sx={{
-					width: [80, 100],
-					height: [36, 40],
-					bg: "rgba(255, 255, 255, 0.1)",
-					borderRadius: 999,
 					zIndex: 1,
 				}}
 			/>

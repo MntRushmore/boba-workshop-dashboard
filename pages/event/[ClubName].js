@@ -265,7 +265,7 @@ export default function Event() {
 									: "#33D6A6",
 								color: isGrantButtonDisabled
 									? "rgba(248, 251, 255, 0.3)"
-									: "#000",
+									: "#1f352e",
 								px: 4,
 								py: 2,
 								fontSize: 2,

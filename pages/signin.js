@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
-import { Alert, Box, Button } from "theme-ui";
+import { Alert, Box, Button, Text } from "theme-ui";
 
 export default function Login() {
 	const router = useRouter();
@@ -19,41 +19,41 @@ export default function Login() {
 				display: "flex",
 				justifyContent: "center",
 				alignItems: "center",
-				flexDirection: "row",
+				flexDirection: "column",
 				width: "100vw",
 				height: "100vh",
 			}}
 		>
-			<Alert
-				variant="warning"
+			<Text as="h1" sx={{ fontSize: 5, mb: 0 }}>
+				👋
+			</Text>
+			<Text as="h1" sx={{ fontSize: 5, mb: 3 }}>
+				Hello there!
+			</Text>
+			<Text
+				as="p"
 				sx={{
-					width: ["80%", "80%", "80%", "80%"],
-					maxWidth: "600px",
-					border: "2px solid",
-					flexDirection: "column",
-					alignItems: "left",
-					padding: 4,
+					fontSize: 1,
+					mb: 3,
 					textAlign: "center",
-					gap: 3,
+					maxWidth: 600,
+					color: "#c0c0c0",
 				}}
 			>
-				<p>
-					Hello there! Please Sign-in to your Hack Club account to see your
-					workshops.
-				</p>
-				<Button
-					onClick={() => signIn("hackclub")}
-					sx={{
-						px: "32px",
-						mt: "16px",
-						width: "fit-content",
-						textAlign: "center",
-						background: "highlight",
-					}}
-				>
-					Click to Sign In
-				</Button>
-			</Alert>
+				Please Sign-in to your Hack Club account to see your workshops :)
+			</Text>
+			<Button
+				onClick={() => signIn("hackclub")}
+				sx={{
+					px: "32px",
+					mt: "16px",
+					width: "fit-content",
+					textAlign: "center",
+					color: "#ffdede",
+				}}
+			>
+				Click to Sign In
+			</Button>
 		</Box>
 	);
 }

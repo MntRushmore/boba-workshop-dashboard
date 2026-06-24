@@ -139,7 +139,7 @@ export default function Header({ session, showProfile, setShowProfile }) {
 								</Box>
 								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 									<Button
-										variant="secondary"
+										variant="primary"
 										onClick={() => setShowProfile(false)}
 										sx={{
 											width: "100%",

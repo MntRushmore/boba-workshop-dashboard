@@ -1,6 +1,6 @@
+import theme from "@hackclub/theme";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "theme-ui";
-import theme from "../theme";
 import "../styles/globals.css";
 import Head from "next/head";
 

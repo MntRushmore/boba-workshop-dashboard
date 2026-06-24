@@ -128,17 +128,6 @@ export default function Home() {
 				{status === "unauthenticated" && <Text>Redirecting to sign in...</Text>}
 				{status === "authenticated" && (
 					<>
-						{loading && (
-							<Grid
-								gap={3}
-								columns={[1, 2, 3]}
-								sx={{ width: "100%", maxWidth: "100%", mx: "auto" }}
-							>
-								{[1, 2, 3].map((i) => (
-									<SkeletonCard key={i} />
-								))}
-							</Grid>
-						)}
 						{error && !loading && (
 							<Box
 								sx={{
@@ -236,7 +225,8 @@ export default function Home() {
 								</Text>
 							</Box>
 						)}
-						{!loading && !error && events.length > 0 && (
+
+						{!error && (
 							<>
 								<Box
 									sx={{
@@ -540,6 +530,17 @@ export default function Home() {
 									</Select>
 								</Box>
 							</>
+						)}
+						{loading && (
+							<Grid
+								gap={3}
+								columns={[1, 2, 3]}
+								sx={{ width: "100%", maxWidth: "100%", mx: "auto" }}
+							>
+								{[1, 2, 3].map((i) => (
+									<SkeletonCard key={i} />
+								))}
+							</Grid>
 						)}
 						{!loading &&
 							!error &&

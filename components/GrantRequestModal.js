@@ -81,12 +81,18 @@ export default function GrantRequestModal({
 				}}
 				onClick={(e) => e.stopPropagation()}
 			>
-				<Text sx={{ fontSize: 4, fontWeight: "bold", mb: 1 }}>
-					Request Grant
-				</Text>
-				<Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.6)", mb: 3 }}>
-					Club: {clubName}
-				</Text>
+				<Box
+					sx={{
+						display: "flex",
+						flexDirection: "column",
+						mb: 2,
+					}}
+				>
+					<Text sx={{ fontSize: 4, fontWeight: "bold" }}>Request Grant</Text>
+					<Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.6)", mb: 2 }}>
+						Club: {clubName}
+					</Text>
+				</Box>
 
 				<Box
 					sx={{
@@ -100,12 +106,19 @@ export default function GrantRequestModal({
 					<Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.6)", mb: 1 }}>
 						Total Grant Amount
 					</Text>
-					<Text sx={{ fontSize: 6, fontWeight: "bold", color: "#33D6A6" }}>
+					<Text
+						sx={{
+							fontSize: 1,
+							padding: 1,
+							fontWeight: "bold",
+							color: "#33D6A6",
+						}}
+					>
 						${totalAmount}
 					</Text>
 					<Text sx={{ fontSize: 1, color: "rgba(248, 251, 255, 0.5)", mt: 1 }}>
-						{approvedCount} approved submission{approvedCount !== 1 ? "s" : ""}{" "}
-						× $5 each
+						consisting of {approvedCount} approved submission
+						{approvedCount !== 1 ? "s" : ""} × $5 each
 					</Text>
 				</Box>
 
@@ -190,24 +203,9 @@ export default function GrantRequestModal({
 								},
 							}}
 						>
-							<option
-								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="Reimbursement"
-							>
-								Reimbursement
-							</option>
-							<option
-								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="HCB Org Transfer"
-							>
-								HCB Org Transfer
-							</option>
-							<option
-								style={{ backgroundColor: "var(--theme-ui-colors-background)" }}
-								value="Grant Card"
-							>
-								Grant Card
-							</option>
+							<option value="Reimbursement">Reimbursement</option>
+							<option value="HCB Org Transfer">HCB Org Transfer</option>
+							<option value="Grant Card">Grant Card</option>
 						</Select>
 					</Box>
 
