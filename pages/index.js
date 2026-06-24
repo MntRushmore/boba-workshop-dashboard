@@ -7,6 +7,7 @@ import WorkshopCard from "../components/workshopCard";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { SkeletonCard } from "../components/Skeleton";
+import ClaimWorkshopModal from "../components/ClaimWorkshopModal";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -20,6 +21,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState("code");
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminStats, setAdminStats] = useState(null);
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -165,6 +167,51 @@ export default function Home() {
                   .
                 </Text>
               </Box>
+            )}
+            {!isAdmin && (
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  onClick={() => setShowClaimModal(true)}
+                  sx={{
+                    bg: "#EC3750",
+                    color: "white",
+                    px: 4,
+                    py: 2,
+                    borderRadius: 4,
+                    fontSize: 2,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    border: "none",
+                    "&:hover": {
+                      opacity: 0.9,
+                    },
+                  }}
+                >
+                  + Claim a Workshop
+                </Button>
+              </Box>
+            )}
+            {showClaimModal && (
+              <ClaimWorkshopModal
+                onClose={() => setShowClaimModal(false)}
+                onSuccess={() => {
+                  // Refresh the workshops list after a successful claim
+                  if (session?.user?.email) {
+                    setLoading(true);
+                    fetch(
+                      `/api/workshops/by-owner?email=${encodeURIComponent(
+                        session.user.email,
+                      )}`,
+                    )
+                      .then((res) => res.json())
+                      .then((json) => {
+                        setEvents(json.records || []);
+                      })
+                      .catch(() => {})
+                      .finally(() => setLoading(false));
+                  }
+                }}
+              />
             )}
             {loading && (
               <Grid
