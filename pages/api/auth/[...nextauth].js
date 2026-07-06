@@ -9,7 +9,7 @@ providers.push({
   name: "Hack Club",
   type: "oauth",
   authorization: {
-    params: { scope: "openid profile name slack_id" },
+    params: { scope: "openid email profile name slack_id" },
   },
   id_token: false,
   wellKnown: "https://auth.hackclub.com/.well-known/openid-configuration",
@@ -39,12 +39,17 @@ export const authOptions = {
           });
 
           if (!res.ok) {
-            console.error("Failed to fetch /api/v1/me:", res.status, res.statusText);
+            const body = await res.text().catch(() => "");
+            console.error("Failed to fetch /api/v1/me:", res.status, res.statusText, body);
             return token;
           }
 
           const data = await res.json();
           const identity = data.identity || data;
+
+          if (!identity.email && !token.email) {
+            console.error("/api/v1/me returned no email for identity id:", identity.id || identity.sub);
+          }
 
           token.id = identity.id || identity.sub || token.id;
           token.name = [identity.first_name, identity.last_name].filter(Boolean).join(" ") || token.name;

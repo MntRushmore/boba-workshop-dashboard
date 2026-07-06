@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   try {
     const url = airtableUrl("tblcIuVemD63IbBuY", {
       fields: ["Club Names", "Status", "Organizer Name", "Email"],
-      filterByFormula: `LOWER({Email}) = '${sanitizedEmail}'`,
+      filterByFormula: `LOWER(TRIM({Email})) = '${sanitizedEmail}'`,
     });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);

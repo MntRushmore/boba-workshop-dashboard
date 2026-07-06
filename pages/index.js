@@ -212,8 +212,10 @@ export default function Home() {
                         session.user.email,
                       )}`,
                     )
-                      .then((res) => res.json())
-                      .then((json) => {
+                      .then(async (res) => {
+                        const json = await res.json();
+                        if (!res.ok)
+                          throw new Error(json?.error || `Request failed: ${res.status}`);
                         if (!json.records) throw new Error("No data returned");
                         setEvents(json.records || []);
                       })
